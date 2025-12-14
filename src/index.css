@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-game-background: #0f172a;
+  --color-game-primary: #3b82f6;
+  --color-game-secondary: #8b5cf6;
+  --color-game-accent: #f43f5e;
+  --color-game-success: #10b981;
+
+  --animate-bounce-short: bounce 0.5s infinite;
+}
+
+@layer base {
+  body {
+    @apply bg-game-background text-white overflow-hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
