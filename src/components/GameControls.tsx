@@ -9,12 +9,7 @@ export const GameControls = ({ onShuffle }: GameControlsProps) => {
     return (
         <div className="flex flex-col items-center justify-end w-full max-w-md mx-auto mt-6 mb-4 px-4">
 
-            {/* Instructions */}
-            <div className="mb-4 text-center">
-                <p className="text-sm font-semibold text-blue-200/80 tracking-wide drop-shadow-sm">
-                    SELECT 2 NUMBERS THAT <span className="text-white font-bold">EQUAL</span> THE TARGET
-                </p>
-            </div>
+
 
             {/* Tools Dock */}
             <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-xl">

@@ -20,3 +20,16 @@ export interface Coordinates {
     row: number;
     col: number;
 }
+
+export interface LevelResult {
+    score: number;
+    stars: number;
+    completedAt: number; // Timestamp
+}
+
+export interface UserProgress {
+    currentLevel: number;
+    totalStars: number;
+    levelStats: Record<string, LevelResult>; // Key is level number (as string for Firestore)
+    unlockedOperators: string[];
+}

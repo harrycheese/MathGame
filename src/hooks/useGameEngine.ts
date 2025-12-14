@@ -1,14 +1,27 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { TileData } from '../types/game';
 import confetti from 'canvas-confetti';
+import { getLevelConfig } from '../config/levelConfig';
+import type { LevelConfig } from '../config/levelConfig';
 
 const GRID_SIZE = 6;
 
-export const useGameEngine = () => {
+export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival', initialLevel: number = 1) => {
+    const [level, setLevel] = useState<number>(initialLevel);
+    const [config, setConfig] = useState<LevelConfig>(getLevelConfig(initialLevel));
+
+    // Campaign Mode: Win Condition State
+    const [isLevelComplete, setIsLevelComplete] = useState(false);
+    const [stars, setStars] = useState(0);
+    const [startTime] = useState<number>(Date.now()); // Simple start tracking
+
+    // Feedback State
+    const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
     const [grid, setGrid] = useState<TileData[][]>([]);
     const [target, setTarget] = useState<number>(10);
     const [score, setScore] = useState<number>(0);
-    const [level, setLevel] = useState<number>(1);
+
     const [selectedTiles, setSelectedTiles] = useState<TileData[]>([]);
     const [comboStreak, setComboStreak] = useState<number>(0);
     const [lastMatchTime, setLastMatchTime] = useState<number>(0);
@@ -18,24 +31,29 @@ export const useGameEngine = () => {
     });
     const [memeState, setMemeState] = useState<boolean>(false);
 
-    // Helper: Generate a random number based on level
-    const generateNumber = useCallback((lvl: number) => {
-        const max = Math.min(9 + Math.floor(lvl / 2), 20);
-        return Math.floor(Math.random() * max) + 1;
+    // Update config when level changes
+    useEffect(() => {
+        setConfig(getLevelConfig(level));
+    }, [level]);
+
+    // Helper: Generate a random number based on current config
+    const generateNumber = useCallback((cfg: LevelConfig) => {
+        return Math.floor(Math.random() * (cfg.maxVal - cfg.minVal + 1)) + cfg.minVal;
     }, []);
 
     // Helper: Create a unique ID
     const generateId = () => Math.random().toString(36).substr(2, 9);
 
-    // Initialize Grid
+    // Initialize Grid with current config settings
     const initializeGrid = useCallback(() => {
+        const currentConfig = getLevelConfig(level); // Force fresh config read
         const newGrid: TileData[][] = [];
         for (let r = 0; r < GRID_SIZE; r++) {
             const row: TileData[] = [];
             for (let c = 0; c < GRID_SIZE; c++) {
                 row.push({
                     id: generateId(),
-                    value: generateNumber(1),
+                    value: generateNumber(currentConfig),
                     row: r,
                     col: c,
                     status: 'idle',
@@ -44,170 +62,218 @@ export const useGameEngine = () => {
             newGrid.push(row);
         }
         setGrid(newGrid);
-    }, [generateNumber]);
+    }, [level, generateNumber]);
 
-    // Generate a valid target from the current grid
-    const generateTarget = useCallback((currentGrid: TileData[][]) => {
+
+    // SMART TARGET GENERATION (Op-First)
+    const generateTarget = useCallback((currentGrid: TileData[][], currentConfig: LevelConfig) => {
         const flatTiles = currentGrid.flat().filter(t => t.value > 0);
         if (flatTiles.length < 2) return 10;
-        // ... (rest same) ->
 
+        // 1. Pick a random operator from allowed list
+        const allowedOps = currentConfig.ops;
+        const op = allowedOps[Math.floor(Math.random() * allowedOps.length)];
 
-        // Pick tile A
+        // 2. Pick tile A
         const tileA = flatTiles[Math.floor(Math.random() * flatTiles.length)];
-        // Pick tile B
         let tileB = flatTiles[Math.floor(Math.random() * flatTiles.length)];
-        while (tileB.id === tileA.id && flatTiles.length > 1) {
+
+        let attempts = 0;
+        while (tileB.id === tileA.id && attempts < 10) {
             tileB = flatTiles[Math.floor(Math.random() * flatTiles.length)];
+            attempts++;
         }
 
-        return tileA.value + tileB.value;
+        let valA = tileA.value;
+        let valB = tileB.value;
+        let result = valA + valB;
+
+        switch (op) {
+            case '+': result = valA + valB; break;
+            case '-': result = Math.abs(valA - valB); break;
+            case '×': result = valA * valB; break;
+            case '÷':
+                if (valA > valB && valA % valB === 0) result = valA / valB;
+                else if (valB > valA && valB % valA === 0) result = valB / valA;
+                else result = valA + valB;
+                break;
+        }
+        return result;
     }, []);
 
+    // Init on mount
     useEffect(() => {
         initializeGrid();
     }, [initializeGrid]);
 
-    // Set initial target after grid is ready
+    // Set initial target
     useEffect(() => {
-        if (grid.length > 0 && target === 10 && score === 0) {
-            setTarget(generateTarget(grid));
+        if (grid.length > 0 && score === 0 && target === 10) {
+            setTarget(generateTarget(grid, config));
         }
-    }, [grid, generateTarget, target, score]);
+    }, [grid, generateTarget, target, score, config]);
+
+
+    // SCORING ENGINE 2.0
+    const calculateScore = (op: string, valA: number, valB: number, timeTaken: number) => {
+        const BASE = 10;
+        let opMult = 1;
+        if (op === '-') opMult = 1.2;
+        if (op === '×') opMult = 2.0;
+        if (op === '÷') opMult = 3.0;
+        const magnitude = 1 + ((valA + valB) / 100);
+        const safeTime = Math.min(timeTaken, 10000);
+        const speedRatio = Math.max(0, (5000 - safeTime) / 5000);
+        const speedBonus = 1 + (speedRatio);
+        return Math.floor(BASE * opMult * magnitude * speedBonus);
+    };
 
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
         const now = Date.now();
+        const timeSinceLast = now - (lastMatchTime || now);
+
         setLastMatchTime(now);
 
-        // EASTER EGG Check: Match 6 & 7
-        if ((tileA.value === 6 && tileB.value === 7) || (tileA.value === 7 && tileB.value === 6)) {
+        // EASTER EGG Check (Meme)
+        const isMeme = (tileA.value === 6 && tileB.value === 7) || (tileA.value === 7 && tileB.value === 6);
+        if (isMeme) {
             setMemeState(true);
-            setTimeout(() => setMemeState(false), 2000); // Show meme for 2s
+            setTimeout(() => setMemeState(false), 2000);
+
+            // EXPLOSION EFFECT
+            confetti({
+                particleCount: 300,
+                spread: 180,
+                startVelocity: 50,
+                origin: { x: 0.5, y: 0.4 },
+                colors: ['#FF0000', '#FFA500', '#FFFF00', '#FFFFFF'], // Fire colors
+                ticks: 300,
+                gravity: 1.2,
+                scalar: 1.2
+            });
         }
 
-        // Calculate Score (Base + Speed Bonus + Combo)
-        const timeDiff = now - lastMatchTime;
-        const isCombo = timeDiff < 2000;
-
-        // Track Operator Stats
-        setOperatorCounts(prev => ({
-            ...prev,
-            [operator]: (prev[operator] || 0) + 1
-        }));
-
-        // Set last operator for animation
+        // Track Stats
+        setOperatorCounts(prev => ({ ...prev, [operator]: (prev[operator] || 0) + 1 }));
         setLastOperator(operator);
         setTimeout(() => setLastOperator(null), 1000);
 
-        let points = 10;
+        // Score
+        const points = calculateScore(operator, tileA.value, tileB.value, timeSinceLast);
+
+        // Combo
+        const isCombo = timeSinceLast < 2000;
+        let finalPoints = points;
         if (isCombo) {
             setComboStreak(p => p + 1);
-            points *= (comboStreak + 1);
+            finalPoints = Math.floor(points * (1 + (comboStreak * 0.1)));
         } else {
             setComboStreak(0);
         }
-        setLastMatchTime(now);
-        setScore(s => s + points);
 
-        // ... (confetti same) ...
-        const centerOrigin = { x: 0.5, y: 0.5 };
-        if (isCombo) {
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: centerOrigin,
-                colors: ['#3b82f6', '#8b5cf6', '#10b981']
-            });
-        } else {
-            confetti({
-                particleCount: 30,
-                spread: 50,
-                origin: centerOrigin
-            });
+        setScore(s => s + finalPoints);
+
+        // Regular Confetti (Only if not meme, to avoid visual clutter)
+        if (!isMeme) {
+            const centerOrigin = { x: 0.5, y: 0.5 };
+            if (isCombo || finalPoints > 50) {
+                confetti({ particleCount: 100, spread: 70, origin: centerOrigin, colors: ['#3b82f6', '#8b5cf6', '#10b981'] });
+            } else {
+                confetti({ particleCount: 30, spread: 50, origin: centerOrigin });
+            }
         }
 
         // Mark matched
-        setGrid(prev => {
-            const next = prev.map(row => row.map(t => {
-                if (t.id === tileA.id || t.id === tileB.id) {
-                    return { ...t, status: 'matched' as const };
-                }
-                return t;
-            }));
-            return next;
-        });
-
+        setGrid(prev => prev.map(row => row.map(t => {
+            if (t.id === tileA.id || t.id === tileB.id) return { ...t, status: 'matched' as const };
+            return t;
+        })));
         setSelectedTiles([]);
 
-        // Logic for replacement (REVERTED TO 500ms)
+        // Grid Refill & Level Check
         setTimeout(() => {
             setGrid(prev => {
-                // Drop Logic
                 const newGrid = prev.map(row => [...row]);
-
                 for (let c = 0; c < GRID_SIZE; c++) {
                     const columnValues: TileData[] = [];
-                    for (let r = 0; r < GRID_SIZE; r++) {
-                        columnValues.push(prev[r][c]);
-                    }
-
+                    for (let r = 0; r < GRID_SIZE; r++) { columnValues.push(prev[r][c]); }
                     const activeTiles = columnValues.filter(t => t.status !== 'matched');
                     const missingCount = GRID_SIZE - activeTiles.length;
-
                     const newTiles: TileData[] = [];
                     for (let i = 0; i < missingCount; i++) {
                         newTiles.push({
-                            id: generateId(),
-                            value: generateNumber(level),
-                            row: i,
-                            col: c,
-                            status: 'idle'
+                            id: generateId(), value: generateNumber(config), row: i, col: c, status: 'idle'
                         });
                     }
-
                     const finalColumn = [...newTiles, ...activeTiles];
                     for (let r = 0; r < GRID_SIZE; r++) {
-                        newGrid[r][c] = {
-                            ...finalColumn[r],
-                            row: r,
-                            col: c,
-                            status: 'idle'
-                        };
+                        newGrid[r][c] = { ...finalColumn[r], row: r, col: c, status: 'idle' };
                     }
                 }
 
-                // Check Level Up (Threshold based)
-                const currentLevelThreshold = level * 100;
-                if (score > 0 && score >= currentLevelThreshold) {
-                    setLevel(l => l + 1);
-                    confetti({
-                        particleCount: 100,
-                        spread: 360,
-                        origin: { y: 0.5 },
-                        colors: ['#FFD700', '#FFA500', '#FFFFFF']
-                    });
+                // CHECK LEVEL PROGRESSION
+                const currentTotalScore = score + finalPoints;
+
+                if (initialMode === 'survival') {
+                    if (currentTotalScore >= config.targetScore) {
+                        setLevel(l => l + 1);
+                        confetti({ particleCount: 150, spread: 360, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FFFFFF'] });
+                    }
+                } else {
+                    // CAMPAIGN WIN LOGIC
+                    // 1. Check Score
+                    const scoreMet = currentTotalScore >= config.targetScore;
+
+                    // 2. Check Quests (Required Ops)
+                    let questsMet = true;
+                    if (config.requiredOps) {
+                        // Current counts including this match
+                        const currentCounts = { ...operatorCounts, [operator]: (operatorCounts[operator] || 0) + 1 };
+                        for (const [op, requiredCount] of Object.entries(config.requiredOps)) {
+                            if ((currentCounts[op] || 0) < requiredCount) {
+                                questsMet = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (scoreMet && questsMet) {
+                        setIsLevelComplete(true);
+
+                        // Calculate Stars
+                        const endlessTime = (Date.now() - startTime) / 1000;
+                        let earnedStars = 1;
+                        // Use new config fields or fallback
+                        const goldTime = config.threeStarSeconds || 60;
+                        const silverTime = config.twoStarSeconds || (goldTime * 1.5);
+
+                        if (endlessTime <= goldTime) earnedStars = 3;
+                        else if (endlessTime <= silverTime) earnedStars = 2;
+
+                        setStars(earnedStars);
+
+                        // Bigger confetti for 3 stars
+                        const particleCount = earnedStars === 3 ? 500 : 200;
+                        confetti({ particleCount, spread: 360, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FFFFFF'] });
+                    }
+                    // Else: Overtime! (UI should show what's missing)
                 }
 
-                setTimeout(() => setTarget(generateTarget(newGrid)), 0);
+                setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
                 return newGrid;
             });
-        }, 500); // Back to fast!
+        }, 500);
 
-    }, [lastMatchTime, comboStreak, generateNumber, generateTarget, level, score]);
+    }, [lastMatchTime, comboStreak, generateNumber, generateTarget, config, score, initialMode]);
 
     const handleMatchFail = useCallback((tileA: TileData, tileB: TileData) => {
         setGrid(prev => prev.map(row => row.map(t => {
-            if (t.id === tileA.id || t.id === tileB.id) {
-                return { ...t, status: 'wrong' as const };
-            }
+            if (t.id === tileA.id || t.id === tileB.id) return { ...t, status: 'wrong' as const };
             return t;
         })));
-
         setTimeout(() => {
             setGrid(prev => prev.map(row => row.map(t => {
-                if (t.id === tileA.id || t.id === tileB.id) {
-                    return { ...t, status: 'idle' as const };
-                }
+                if (t.id === tileA.id || t.id === tileB.id) return { ...t, status: 'idle' as const };
                 return t;
             })));
             setSelectedTiles([]);
@@ -217,109 +283,75 @@ export const useGameEngine = () => {
     const checkMatch = useCallback((tileA: TileData, tileB: TileData) => {
         const valA = tileA.value;
         const valB = tileB.value;
+        const ops = config.ops;
 
-        // Check all ops
-        if (valA + valB === target) {
-            handleMatchSuccess(tileA, tileB, '+');
-            return;
-        }
-        if (Math.abs(valA - valB) === target) {
-            handleMatchSuccess(tileA, tileB, '-');
-            return;
-        }
-        if (valA * valB === target) {
-            handleMatchSuccess(tileA, tileB, '×');
-            return;
-        }
-        if ((valA / valB === target) || (valB / valA === target)) {
-            handleMatchSuccess(tileA, tileB, '÷');
-            return;
+        if (ops.includes('+') && valA + valB === target) { handleMatchSuccess(tileA, tileB, '+'); return; }
+        if (ops.includes('-') && Math.abs(valA - valB) === target) { handleMatchSuccess(tileA, tileB, '-'); return; }
+        if (ops.includes('×') && valA * valB === target) { handleMatchSuccess(tileA, tileB, '×'); return; }
+        if (ops.includes('÷') && ((valA / valB === target) || (valB / valA === target))) { handleMatchSuccess(tileA, tileB, '÷'); return; }
+
+        // Feedback for locked operators
+        if (!ops.includes('-') && Math.abs(valA - valB) === target) {
+            setFeedbackMessage("Great math! But this level focuses only on ADDITION.");
+            setTimeout(() => setFeedbackMessage(null), 2500);
+        } else if (!ops.includes('×') && valA * valB === target) {
+            setFeedbackMessage("Great math! But Multiplication comes later.");
+            setTimeout(() => setFeedbackMessage(null), 2500);
+        } else if (!ops.includes('÷') && ((valA / valB === target) || (valB / valA === target))) {
+            setFeedbackMessage("Smart! But save Division for Level 50.");
+            setTimeout(() => setFeedbackMessage(null), 2500);
         }
 
         handleMatchFail(tileA, tileB);
-    }, [target, handleMatchSuccess, handleMatchFail]);
+    }, [target, config, handleMatchSuccess, handleMatchFail]);
 
     const handleTileClick = useCallback((row: number, col: number) => {
         const tile = grid[row][col];
         if (tile.status === 'matched' || tile.status === 'wrong') return;
-
-        // Deselect if already selected
         if (tile.status === 'selected') {
             setGrid(prev => {
-                const next = [...prev];
-                next[row][col] = { ...tile, status: 'idle' };
-                return next;
+                const next = [...prev]; next[row][col] = { ...tile, status: 'idle' }; return next;
             });
             setSelectedTiles(prev => prev.filter(t => t.id !== tile.id));
             return;
         }
-
         const newSelected = [...selectedTiles, tile];
-
-        // Visual update
-        setGrid(prev => {
-            const next = [...prev];
-            next[row][col] = { ...tile, status: 'selected' };
-            return next;
-        });
+        setGrid(prev => { const next = [...prev]; next[row][col] = { ...tile, status: 'selected' }; return next; });
         setSelectedTiles(newSelected);
-
-        if (newSelected.length === 2) {
-            checkMatch(newSelected[0], newSelected[1]);
-        }
+        if (newSelected.length === 2) checkMatch(newSelected[0], newSelected[1]);
     }, [grid, selectedTiles, checkMatch]);
 
     const shuffleBoard = useCallback(() => {
         setGrid(prev => {
             const flatTiles = prev.flat();
-            // Fisher-Yates
             for (let i = flatTiles.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 const temp = flatTiles[i].value;
                 flatTiles[i].value = flatTiles[j].value;
                 flatTiles[j].value = temp;
-
-                // force idle
                 flatTiles[i].status = 'idle';
                 flatTiles[j].status = 'idle';
             }
-
             const newGrid: TileData[][] = [];
             let index = 0;
             for (let r = 0; r < GRID_SIZE; r++) {
                 const row: TileData[] = [];
                 for (let c = 0; c < GRID_SIZE; c++) {
-                    row.push({
-                        ...prev[r][c],
-                        value: flatTiles[index].value,
-                        status: 'idle'
-                    });
+                    row.push({ ...prev[r][c], value: flatTiles[index].value, status: 'idle' });
                     index++;
                 }
                 newGrid.push(row);
             }
-
-            setTimeout(() => setTarget(generateTarget(newGrid)), 0);
+            setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
             return newGrid;
         });
         setSelectedTiles([]);
-        // Visual feedback for shuffle?
-        confetti({
-            particleCount: 50,
-            spread: 120,
-            origin: { y: 0.6 }
-        });
-    }, [generateTarget]);
+        confetti({ particleCount: 50, spread: 120, origin: { y: 0.6 } });
+    }, [generateTarget, config]);
 
     return {
-        grid,
-        target,
-        score,
-        level,
-        lastOperator,
-        memeState,
-        operatorCounts,
-        handleTileClick,
-        shuffleBoard
+        grid, target, score, level, isLevelComplete,
+        lastOperator, memeState, operatorCounts,
+        handleTileClick, shuffleBoard, config, feedbackMessage, stars
     };
 };

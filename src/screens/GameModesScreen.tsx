@@ -35,39 +35,51 @@ export const GameModesScreen = () => {
             </div>
 
             {/* Content */}
-            <div className="max-w-md mx-auto space-y-4 relative z-10">
+            <div className="max-w-md mx-auto space-y-4 relative z-10 w-full">
+
+                {/* CAMPAIGN MODE (Journey) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-lg border border-white/10 cursor-pointer group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate('/campaign')}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-3xl relative overflow-hidden shadow-2xl group cursor-pointer border border-white/10"
+                >
+                    <div className="absolute -right-6 -bottom-6 opacity-20 group-hover:opacity-30 transition-opacity">
+                        <svg className="w-40 h-40 transform rotate-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                    </div>
+
+                    <div className="flex justify-between items-start mb-2 relative z-10">
+                        <div>
+                            <h2 className="text-3xl font-black italic tracking-tighter">CAMPAIGN</h2>
+                            <span className="text-red-200 font-bold text-xs tracking-wider">THE 100 LEVEL JOURNEY</span>
+                        </div>
+                        <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">NEW</span>
+                    </div>
+                    <p className="text-purple-100/90 text-sm font-medium mt-2 max-w-[80%]">Unlock operators, earn medals, and master the grid.</p>
+                </motion.div>
+
+                {/* SURVIVAL MODE (Classic) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="p-6 bg-gradient-to-br from-blue-600 to-cyan-700 rounded-3xl shadow-lg border border-white/10 cursor-pointer group"
                     onClick={() => navigate('/play')}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                 >
                     <div className="flex justify-between items-start mb-2">
-                        <h2 className="text-2xl font-black italic">QUICK PLAY</h2>
-                        <span className="bg-white/20 px-2 py-1 rounded text-xs font-bold">CLASSIC</span>
+                        <div>
+                            <h2 className="text-3xl font-black italic tracking-tighter">SURVIVAL</h2>
+                            <span className="text-blue-200 font-bold text-xs tracking-wider">CLASSIC ARCADE</span>
+                        </div>
+                        <svg className="w-8 h-8 text-blue-200 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
-                    <p className="text-blue-100 text-sm">Find pairs that equal the changing Target. Score points to Level Up!</p>
+                    <p className="text-blue-100/90 text-sm font-medium mt-2">Infinite play. Bank time with combos. Don't hit zero.</p>
                 </motion.div>
 
-                {/* Coming Soon Modes */}
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 opacity-50 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/50 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Soon</span>
-                        </div>
-                        <h3 className="font-bold text-gray-400 mb-1">Ranked</h3>
-                        <p className="text-xs text-gray-600">Compete globally</p>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 opacity-50 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/50 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Soon</span>
-                        </div>
-                        <h3 className="font-bold text-gray-400 mb-1">Zen Mode</h3>
-                        <p className="text-xs text-gray-600">No timers, just chill</p>
-                    </div>
-                </div>
             </div>
         </div>
     );

@@ -3,14 +3,20 @@ import { motion } from 'framer-motion';
 interface OperatorTrayProps {
     operatorCounts: Record<string, number>;
     lastOperator?: string | null;
+    allowedOps: string[];
+    requiredOps?: Record<string, number>;
 }
 
-export const OperatorTray = ({ operatorCounts, lastOperator }: OperatorTrayProps) => {
-    const operators = ['+', '-', '×', '÷'];
+export const OperatorTray = ({ operatorCounts, lastOperator, allowedOps, requiredOps }: OperatorTrayProps) => {
+    // The design choice: only SHOW unlocked ones.
+    // The design choice: only SHOW unlocked ones.
+
+    // Safety fallback
+    const displayOps = allowedOps.length > 0 ? allowedOps : ['+'];
 
     return (
-        <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-sm px-3 py-2 rounded-xl border border-white/5 shadow-inner">
-            {operators.map((op) => {
+        <div className="flex items-center gap-4 bg-gray-900/50 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/5 shadow-inner">
+            {displayOps.map((op) => {
                 const count = operatorCounts[op] || 0;
                 const isJustActive = lastOperator === op;
 
@@ -33,12 +39,27 @@ export const OperatorTray = ({ operatorCounts, lastOperator }: OperatorTrayProps
                         `}>
                             <span className="text-lg font-black">{op}</span>
 
-                            {/* Count Badge */}
-                            {count > 0 && (
-                                <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border border-gray-900 shadow-sm">
-                                    {count}
-                                </div>
-                            )}
+                            {/* Quest / Count Badge */}
+                            {(() => {
+                                const req = requiredOps?.[op];
+                                if (req) {
+                                    const isDone = count >= req;
+                                    return (
+                                        <div className={`absolute -top-2 -right-2 px-1.5 h-5 flex items-center justify-center rounded-full border shadow-sm text-[9px] font-bold z-10 ${isDone ? 'bg-green-500 border-green-600 text-white shadow-green-500/20' : 'bg-orange-500 border-orange-600 text-white shadow-orange-500/20'}`}>
+                                            {count}/{req}
+                                        </div>
+                                    )
+                                }
+                                // Fallback: just show count if > 0 (Standard behavior)
+                                if (count > 0) {
+                                    return (
+                                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border border-gray-900 shadow-sm z-10">
+                                            {count}
+                                        </div>
+                                    )
+                                }
+                                return null;
+                            })()}
                         </div>
                     </div>
                 );

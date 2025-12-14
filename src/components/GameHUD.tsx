@@ -9,9 +9,11 @@ interface GameHUDProps {
     operatorCounts: Record<string, number>;
     lastOperator?: string | null;
     memeState?: boolean;
+    allowedOps: string[];
+    requiredOps?: Record<string, number>;
 }
 
-export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, memeState }: GameHUDProps) => {
+export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, memeState, allowedOps, requiredOps }: GameHUDProps) => {
     return (
         <div className="flex flex-col items-center w-full max-w-md mx-auto z-20 mb-2">
 
@@ -28,7 +30,12 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <OperatorTray operatorCounts={operatorCounts} lastOperator={lastOperator} />
+                    <OperatorTray
+                        operatorCounts={operatorCounts}
+                        lastOperator={lastOperator}
+                        allowedOps={allowedOps}
+                        requiredOps={requiredOps}
+                    />
                 </div>
 
                 {/* Right Group: Status Pill */}
@@ -38,11 +45,16 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                         <span className="text-xl font-black text-white leading-none">{level}</span>
                     </div>
                     <div className="w-px h-6 bg-white/10" />
-                    <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-gray-500 tracking-wider">SCORE</span>
-                        <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 leading-none">
-                            {score}
-                        </span>
+
+                    {/* Score & Quests Container */}
+                    <div className="flex flex-col items-end">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-gray-500 tracking-wider">SCORE</span>
+                            <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 leading-none">
+                                {score}
+                            </span>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -53,7 +65,9 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                 <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl opacity-20 animate-pulse group-hover:opacity-40 transition-opacity" />
 
                 <div className="relative flex flex-col items-center justify-center w-32 h-32 bg-gray-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
-                    <span className="text-[10px] font-bold text-gray-400 mb-1 tracking-[0.2em] uppercase z-10">TARGET</span>
+                    {!memeState && (
+                        <span className="text-[10px] font-bold text-gray-400 mb-1 tracking-[0.2em] uppercase z-10">TARGET</span>
+                    )}
 
                     {memeState ? (
                         <motion.div
@@ -64,12 +78,12 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                                 y: [0, -5, 5, 0]
                             }}
                             transition={{ duration: 0.5, repeat: Infinity }}
-                            className="text-3xl font-black text-yellow-400 tracking-tighter text-center leading-none"
+                            className="text-2xl font-black text-yellow-400 tracking-tighter text-center leading-tight"
                             style={{ textShadow: '0 0 20px rgba(250, 204, 21, 0.5)' }}
                         >
                             Siiiix...
                             <br />
-                            Sevennn!
+                            Seveennn!
                         </motion.div>
                     ) : (
                         <motion.div
