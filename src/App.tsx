@@ -1,44 +1,35 @@
-import { useGameEngine } from './hooks/useGameEngine';
-import { GameBoard } from './components/GameBoard';
-import { GameHUD } from './components/GameHUD';
-import { GameControls } from './components/GameControls';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { IntroScreen } from './screens/IntroScreen';
+import { GameScreen } from './screens/GameScreen';
+import { LoginScreen } from './screens/LoginScreen';
+import { RegisterScreen } from './screens/RegisterScreen';
+import { GameModesScreen } from './screens/GameModesScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
-  const { grid, target, score, level, lastOperator, operatorCounts, handleTileClick, shuffleBoard } = useGameEngine();
-
   return (
-    <div className="min-h-screen bg-game-background flex flex-col items-center justify-center p-4 selection:bg-game-primary selection:text-white overflow-hidden relative">
-      {/* Background Decor */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-game-primary/20 rounded-full blur-[120px] mix-blend-screen animate-[pulse_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-game-secondary/20 rounded-full blur-[100px] mix-blend-screen animate-[pulse_10s_ease-in-out_infinite_reverse]" />
-        <div className="absolute top-[40%] left-[30%] w-[300px] h-[300px] bg-game-accent/10 rounded-full blur-[80px]" />
-      </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<IntroScreen />} />
+          <Route path="/login" element={<LoginScreen />} />
+          <Route path="/register" element={<RegisterScreen />} />
 
-      <div className="z-10 w-full max-w-lg flex flex-col h-full justify-center items-center">
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
+            <Route path="/modes" element={<GameModesScreen />} />
+            <Route path="/play" element={<GameScreen />} />
+            <Route path="/profile" element={<ProfileScreen />} />
+          </Route>
 
-        {/* 1. Status & Goal */}
-        <GameHUD
-          target={target}
-          score={score}
-          level={level}
-          operatorCounts={operatorCounts}
-          lastOperator={lastOperator}
-        />
-
-        {/* 2. Work (Grid) */}
-        <GameBoard
-          grid={grid}
-          onTileClick={handleTileClick}
-        />
-
-        {/* 3. Tools (Dock) */}
-        <GameControls
-          onShuffle={shuffleBoard}
-        />
-
-      </div>
-    </div>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

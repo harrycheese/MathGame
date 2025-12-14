@@ -16,6 +16,7 @@ export const useGameEngine = () => {
     const [operatorCounts, setOperatorCounts] = useState<Record<string, number>>({
         '+': 0, '-': 0, '×': 0, '÷': 0
     });
+    const [memeState, setMemeState] = useState<boolean>(false);
 
     // Helper: Generate a random number based on level
     const generateNumber = useCallback((lvl: number) => {
@@ -49,6 +50,8 @@ export const useGameEngine = () => {
     const generateTarget = useCallback((currentGrid: TileData[][]) => {
         const flatTiles = currentGrid.flat().filter(t => t.value > 0);
         if (flatTiles.length < 2) return 10;
+        // ... (rest same) ->
+
 
         // Pick tile A
         const tileA = flatTiles[Math.floor(Math.random() * flatTiles.length)];
@@ -74,6 +77,15 @@ export const useGameEngine = () => {
 
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
         const now = Date.now();
+        setLastMatchTime(now);
+
+        // EASTER EGG Check: Match 6 & 7
+        if ((tileA.value === 6 && tileB.value === 7) || (tileA.value === 7 && tileB.value === 6)) {
+            setMemeState(true);
+            setTimeout(() => setMemeState(false), 2000); // Show meme for 2s
+        }
+
+        // Calculate Score (Base + Speed Bonus + Combo)
         const timeDiff = now - lastMatchTime;
         const isCombo = timeDiff < 2000;
 
@@ -164,10 +176,16 @@ export const useGameEngine = () => {
                     }
                 }
 
-                // Check Level Up
-                if (score > 0 && score % 100 === 0) {
+                // Check Level Up (Threshold based)
+                const currentLevelThreshold = level * 100;
+                if (score > 0 && score >= currentLevelThreshold) {
                     setLevel(l => l + 1);
-                    // Maybe confetti burst?
+                    confetti({
+                        particleCount: 100,
+                        spread: 360,
+                        origin: { y: 0.5 },
+                        colors: ['#FFD700', '#FFA500', '#FFFFFF']
+                    });
                 }
 
                 setTimeout(() => setTarget(generateTarget(newGrid)), 0);
@@ -299,6 +317,7 @@ export const useGameEngine = () => {
         score,
         level,
         lastOperator,
+        memeState,
         operatorCounts,
         handleTileClick,
         shuffleBoard
