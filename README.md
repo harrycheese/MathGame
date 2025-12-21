@@ -22,9 +22,11 @@ No timer, no pressure. Just pure math practice at your own pace.
 - **Progressive Difficulty** - Levels introduce new operators and larger numbers
 - **Star Rating System** - Earn 1-3 stars based on speed and accuracy
 - **Combo System** - Chain correct answers for bonus time in Survival mode
+- **Career Analytics** - Track equations solved, time played, operator mastery
 - **Account Linking** - Play as guest, then link email/Google to save progress
 - **Offline Support** - LocalStorage backup with Firebase sync
 - **Mobile-First Design** - Optimized for touch devices (iOS/Android ready)
+- **Auto-Save** - Progress saved every 30 seconds and on tab switch
 
 ## 🛠️ Tech Stack
 
@@ -93,7 +95,7 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 
 ## 🗺️ Roadmap
 
-- [ ] Player stats & analytics
+- [x] Player stats & analytics (Career stats, operator mastery, session tracking)
 - [ ] Sound effects & haptic feedback
 - [ ] Daily challenges
 - [ ] Leaderboards
