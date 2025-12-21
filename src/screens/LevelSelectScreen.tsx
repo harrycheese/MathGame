@@ -20,7 +20,6 @@ export const LevelSelectScreen = () => {
         // Ideally we update the Context to know we are in "Campaign Mode" at "Level X"
         // For this MVP, we will rely on URL or simple navigation state
 
-        // TODO: Pass level to GameScreen
         navigate('/play', { state: { mode: 'campaign', level } });
     };
 

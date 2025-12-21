@@ -6,21 +6,6 @@ export interface TileData {
     status: 'idle' | 'selected' | 'matched' | 'wrong';
 }
 
-export interface GameState {
-    grid: TileData[][];
-    target: number;
-    score: number;
-    level: number;
-    selectedTiles: TileData[];
-    comboStreak: number;
-    isPlaying: boolean;
-}
-
-export interface Coordinates {
-    row: number;
-    col: number;
-}
-
 export interface LevelResult {
     score: number;
     stars: number;

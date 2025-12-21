@@ -9,7 +9,6 @@ interface OperatorTrayProps {
 
 export const OperatorTray = ({ operatorCounts, lastOperator, allowedOps, requiredOps }: OperatorTrayProps) => {
     // The design choice: only SHOW unlocked ones.
-    // The design choice: only SHOW unlocked ones.
 
     // Safety fallback
     const displayOps = allowedOps.length > 0 ? allowedOps : ['+'];

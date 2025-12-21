@@ -34,7 +34,7 @@ export const RegisterScreen = () => {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/play');
+            navigate('/modes');
         } catch {
             setError('Google Sign Up failed.');
         }
