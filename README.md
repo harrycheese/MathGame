@@ -1,73 +1,108 @@
-# React + TypeScript + Vite
+# 🧮 SUMS - The Speed Math Game
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **Note:** "SUMS" is a working title. Final name TBD!
 
-Currently, two official plugins are available:
+A fast-paced math puzzle game where players select tiles that combine to reach target numbers. Built with **React**, **TypeScript**, **Vite**, and **Firebase**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![Game Modes](screenshots/modes.png)
 
-## React Compiler
+## 🎮 Game Modes
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🏆 Campaign Mode
+Progress through **100 levels** of increasing difficulty. Unlock new operators (+, -, ×, ÷), earn stars, and master your math skills.
 
-## Expanding the ESLint configuration
+### ⏱️ Survival Mode  
+Race against the clock! Start with limited time and earn bonus seconds with each correct answer. Chain combos for extra time.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🧘 Zen Mode
+No timer, no pressure. Just pure math practice at your own pace.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## ✨ Features
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Progressive Difficulty** - Levels introduce new operators and larger numbers
+- **Star Rating System** - Earn 1-3 stars based on speed and accuracy
+- **Combo System** - Chain correct answers for bonus time in Survival mode
+- **Account Linking** - Play as guest, then link email/Google to save progress
+- **Offline Support** - LocalStorage backup with Firebase sync
+- **Mobile-First Design** - Optimized for touch devices (iOS/Android ready)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| React 18 | UI Framework |
+| TypeScript | Type Safety |
+| Vite | Build Tool |
+| Tailwind CSS | Styling |
+| Framer Motion | Animations |
+| Firebase Auth | Authentication |
+| Firestore | Cloud Database |
+| Claude Opus 4.5 | AI Pair Programming |
+| Gemini 3 Pro | AI Pair Programming |
+| Google Antigravity | IDE |
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/harrycheese/MathGame.git
+cd MathGame
+
+# Install dependencies
+npm install
+
+# Create .env file with your Firebase config
+cp .env.example .env.local
+
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Create a `.env.local` file:
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 ```
+
+## 📱 Screenshots
+
+### Gameplay
+
+| Campaign Mode | Survival Mode | Zen Mode |
+|:-------------:|:-------------:|:--------:|
+| ![campaign](screenshots/campaign.png) | ![survival](screenshots/survival.png) | ![zen](screenshots/zen.png) |
+
+### Screens
+
+| Level Select | Profile | Login |
+|:------------:|:-------:|:-----:|
+| ![levels](screenshots/levels.png) | ![profile](screenshots/profile.png) | ![login](screenshots/login.png) |
+
+## 🗺️ Roadmap
+
+- [ ] Player stats & analytics
+- [ ] Sound effects & haptic feedback
+- [ ] Daily challenges
+- [ ] Leaderboards
+- [ ] More game modes
+
+## 📄 License
+
+MIT License - feel free to use this project for learning or your own apps!
+
+---
+
+Made with ❤️ and lots of ☕
