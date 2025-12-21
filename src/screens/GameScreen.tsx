@@ -3,6 +3,8 @@ import { useGameEngine } from '../hooks/useGameEngine';
 import { GameHUD } from '../components/GameHUD';
 import { GameBoard } from '../components/GameBoard';
 import { GameControls } from '../components/GameControls';
+import { TargetCircle } from '../components/TargetCircle';
+import { TimerCircle } from '../components/TimerCircle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useUserProgress } from '../hooks/useUserProgress';
@@ -12,23 +14,25 @@ export const GameScreen = () => {
     const navigate = useNavigate();
     const { saveLevel } = useUserProgress();
 
-    // Read params passed from LevelSelect
-    const mode = location.state?.mode === 'campaign' ? 'campaign' : 'survival';
+    // Read params passed from LevelSelect or GameModes
+    const modeParam = location.state?.mode;
+    const mode: 'campaign' | 'survival' | 'zen' =
+        modeParam === 'campaign' ? 'campaign' :
+            modeParam === 'zen' ? 'zen' : 'survival';
     const initialLevel = location.state?.level || 1;
 
     const {
         grid, target, score, level, isLevelComplete,
         lastOperator, operatorCounts,
-        handleTileClick, shuffleBoard, memeState, config, feedbackMessage, stars
+        handleTileClick, shuffleBoard, memeState, config, feedbackMessage, stars,
+        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown
     } = useGameEngine(mode, initialLevel);
 
     const [showHelp, setShowHelp] = useState(false);
 
     // Auto-save when Level Complete
-    // Auto-save when Level Complete
     useEffect(() => {
         if (isLevelComplete && mode === 'campaign') {
-            console.log("GameScreen: Level Complete! Saving...", { level, score, stars });
             saveLevel(level, {
                 score,
                 stars,
@@ -43,18 +47,31 @@ export const GameScreen = () => {
             <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-[#0a0a0f] to-[#0a0a0f] z-0" />
 
             <div className="z-10 w-full max-w-md flex flex-col items-center h-full">
-                {/* 1. Dashboard (HUD) */}
+                {/* 1. Dashboard (HUD) - Header row with operators, score, level */}
                 <GameHUD
                     target={target}
                     score={score}
-                    level={level}
+                    level={mode === 'campaign' ? level : undefined}
                     operatorCounts={operatorCounts}
                     lastOperator={lastOperator}
                     memeState={memeState}
                     allowedOps={config.ops}
-                    requiredOps={config.requiredOps}
-
+                    requiredOps={mode === 'campaign' ? config.requiredOps : undefined}
+                    showTarget={mode !== 'survival'} // Hide target in HUD for survival (shown separately)
                 />
+
+                {/* SURVIVAL MODE: Target + Timer Side by Side */}
+                {mode === 'survival' && (
+                    <div className="flex items-center justify-center gap-6 py-2 mb-2">
+                        <TargetCircle target={target} memeState={memeState} />
+                        <TimerCircle
+                            timeRemaining={timeRemaining}
+                            maxTime={INITIAL_TIME}
+                            timeBonus={timeBonus}
+                            countdown={countdown}
+                        />
+                    </div>
+                )}
 
                 {/* INSTRUCTION / FEEDBACK */}
                 <div className="h-8 flex items-center justify-center mb-2 gap-2">
@@ -139,7 +156,7 @@ export const GameScreen = () => {
                 )}
 
                 {/* 2. Work (Grid) */}
-                <div className="flex-1 flex items-center justify-center w-full max-w-md">
+                <div className={`flex-1 flex items-center justify-center w-full max-w-md ${countdown !== null && countdown >= 0 ? 'pointer-events-none opacity-70' : ''}`}>
                     <GameBoard
                         grid={grid}
                         onTileClick={handleTileClick}
@@ -230,6 +247,79 @@ export const GameScreen = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                     </svg>
                                 </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Game Over Modal (Survival Mode) */}
+            <AnimatePresence>
+                {isGameOver && mode === 'survival' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            className="bg-gray-900 w-full max-w-sm rounded-[32px] p-8 border border-red-500/30 shadow-2xl relative overflow-hidden"
+                        >
+                            {/* Background decoration */}
+                            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-red-500/20 to-transparent pointer-events-none" />
+
+                            <div className="relative z-10 flex flex-col items-center text-center">
+                                {/* Header */}
+                                <div className="mb-2 uppercase tracking-widest text-xs font-bold text-red-400">Time's Up</div>
+                                <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 drop-shadow-lg">
+                                    {score === 67 ? (
+                                        <motion.span
+                                            animate={{
+                                                scale: [1, 1.1, 1],
+                                                rotate: [-5, 5, -5],
+                                                y: [0, -5, 5, 0]
+                                            }}
+                                            transition={{ duration: 0.5, repeat: Infinity }}
+                                            className="text-yellow-400 inline-block"
+                                            style={{ textShadow: '0 0 30px rgba(250, 204, 21, 0.8)' }}
+                                        >
+                                            Siiiix... Seveennn!
+                                        </motion.span>
+                                    ) : 'GAME OVER'}
+                                </h2>
+
+                                {/* Stats Summary */}
+                                <div className={`w-full rounded-2xl p-4 mb-8 ${score === 67 ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-white/5'}`}>
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Final Score</span>
+                                    <motion.div
+                                        className={`text-4xl font-black ${score === 67 ? 'text-yellow-400' : 'text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400'}`}
+                                        animate={score === 67 ? { scale: [1, 1.05, 1] } : {}}
+                                        transition={{ duration: 0.5, repeat: score === 67 ? Infinity : 0 }}
+                                        style={score === 67 ? { textShadow: '0 0 20px rgba(250, 204, 21, 0.5)' } : {}}
+                                    >
+                                        {score}
+                                    </motion.div>
+                                </div>
+
+                                <div className="flex gap-3 w-full">
+                                    <button
+                                        onClick={() => navigate('/modes')}
+                                        className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold tracking-wider transition-all"
+                                    >
+                                        EXIT
+                                    </button>
+                                    <button
+                                        onClick={() => window.location.reload()}
+                                        className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black tracking-widest shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <span>RETRY</span>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>

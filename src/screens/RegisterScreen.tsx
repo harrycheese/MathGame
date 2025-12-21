@@ -26,7 +26,6 @@ export const RegisterScreen = () => {
             navigate('/modes');
         } catch (err: any) {
             setError(err.message || 'Failed to create account.');
-            console.error(err);
         }
         setLoading(false);
     };
@@ -36,9 +35,8 @@ export const RegisterScreen = () => {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
             navigate('/play');
-        } catch (err) {
+        } catch {
             setError('Google Sign Up failed.');
-            console.error(err);
         }
     };
 
@@ -71,6 +69,7 @@ export const RegisterScreen = () => {
                         <input
                             type="text"
                             required
+                            autoComplete="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
@@ -83,6 +82,7 @@ export const RegisterScreen = () => {
                         <input
                             type="email"
                             required
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
@@ -95,6 +95,7 @@ export const RegisterScreen = () => {
                         <input
                             type="password"
                             required
+                            autoComplete="new-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"

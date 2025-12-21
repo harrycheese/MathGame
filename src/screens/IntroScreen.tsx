@@ -14,8 +14,8 @@ export const IntroScreen = () => {
         try {
             await signInAnonymously(auth);
             navigate('/modes');
-        } catch (error) {
-            console.error("Guest login failed:", error);
+        } catch {
+            // Guest login failed - silent
         }
         setLoading(false);
     };

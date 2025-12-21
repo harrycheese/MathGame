@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { TileData } from '../types/game';
 import confetti from 'canvas-confetti';
 import { getLevelConfig } from '../config/levelConfig';
@@ -6,8 +6,8 @@ import type { LevelConfig } from '../config/levelConfig';
 
 const GRID_SIZE = 6;
 
-export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival', initialLevel: number = 1) => {
-    const [level, setLevel] = useState<number>(initialLevel);
+export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'survival', initialLevel: number = 1) => {
+    const [level, _setLevel] = useState<number>(initialLevel);
     const [config, setConfig] = useState<LevelConfig>(getLevelConfig(initialLevel));
 
     // Campaign Mode: Win Condition State
@@ -24,17 +24,43 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
 
     const [selectedTiles, setSelectedTiles] = useState<TileData[]>([]);
     const [comboStreak, setComboStreak] = useState<number>(0);
-    const [lastMatchTime, setLastMatchTime] = useState<number>(0);
+    const lastMatchTimeRef = useRef<number>(0); // Using ref to avoid stale closure
     const [lastOperator, setLastOperator] = useState<string | null>(null);
     const [operatorCounts, setOperatorCounts] = useState<Record<string, number>>({
         '+': 0, '-': 0, '×': 0, '÷': 0
     });
     const [memeState, setMemeState] = useState<boolean>(false);
 
-    // Update config when level changes
+    // Timer State (for Survival mode)
+    const INITIAL_TIME = 60; // seconds
+    const [timeRemaining, setTimeRemaining] = useState<number>(INITIAL_TIME);
+    const [isGameOver, setIsGameOver] = useState<boolean>(false);
+    const [timeBonus, setTimeBonus] = useState<number | null>(null);
+
+    // Pre-game countdown (3, 2, 1, GO!)
+    const [countdown, setCountdown] = useState<number | null>(initialMode === 'survival' ? 3 : null);
+
+    // Update config when level changes (only for campaign mode)
+    // Zen and Survival modes have all operators unlocked, no level progression
     useEffect(() => {
-        setConfig(getLevelConfig(level));
-    }, [level]);
+        if (initialMode === 'campaign') {
+            setConfig(getLevelConfig(level));
+        } else {
+            // For zen/survival: all ops unlocked with reasonable number range
+            setConfig({
+                level: 1,
+                ops: ['+', '-', '×', '÷'], // All operators
+                minVal: 1,
+                maxVal: 15, // Reasonable range for mental math
+                targetScore: 999999,
+                minScoreToPass: 0,
+                description: initialMode === 'zen' ? 'ENDLESS CALM' : 'TIME CHALLENGE',
+                threeStarSeconds: 9999,
+                twoStarSeconds: 9999,
+                requiredOps: undefined
+            });
+        }
+    }, [level, initialMode]);
 
     // Helper: Generate a random number based on current config
     const generateNumber = useCallback((cfg: LevelConfig) => {
@@ -63,6 +89,36 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
         }
         setGrid(newGrid);
     }, [level, generateNumber]);
+
+    // Pre-game countdown effect (3, 2, 1, then start)
+    useEffect(() => {
+        if (initialMode !== 'survival' || countdown === null) return;
+
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else {
+            // Countdown finished, start the game
+            setCountdown(null);
+        }
+    }, [initialMode, countdown]);
+
+    // Timer countdown effect (only for survival mode, after countdown finishes)
+    useEffect(() => {
+        if (initialMode !== 'survival' || isGameOver || countdown !== null) return;
+
+        const interval = setInterval(() => {
+            setTimeRemaining(prev => {
+                if (prev <= 1) {
+                    setIsGameOver(true);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [initialMode, isGameOver, countdown]);
 
 
     // SMART TARGET GENERATION (Op-First)
@@ -130,9 +186,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
 
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
         const now = Date.now();
-        const timeSinceLast = now - (lastMatchTime || now);
+        const timeSinceLast = lastMatchTimeRef.current > 0 ? now - lastMatchTimeRef.current : Infinity;
 
-        setLastMatchTime(now);
+        lastMatchTimeRef.current = now;
 
         // EASTER EGG Check (Meme)
         const isMeme = (tileA.value === 6 && tileB.value === 7) || (tileA.value === 7 && tileB.value === 6);
@@ -162,7 +218,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
         const points = calculateScore(operator, tileA.value, tileB.value, timeSinceLast);
 
         // Combo
-        const isCombo = timeSinceLast < 2000;
+        const isCombo = timeSinceLast < 3500; // 3.5 seconds for combo
         let finalPoints = points;
         if (isCombo) {
             setComboStreak(p => p + 1);
@@ -172,6 +228,15 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
         }
 
         setScore(s => s + finalPoints);
+
+        // Add time bonus for survival mode
+        if (initialMode === 'survival') {
+            const bonus = isCombo ? 5 : 3;
+            setTimeRemaining(prev => prev + bonus);
+            setTimeBonus(bonus);
+            // Clear bonus display after animation
+            setTimeout(() => setTimeBonus(null), 1000);
+        }
 
         // Regular Confetti (Only if not meme, to avoid visual clutter)
         if (!isMeme) {
@@ -215,10 +280,11 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
                 const currentTotalScore = score + finalPoints;
 
                 if (initialMode === 'survival') {
-                    if (currentTotalScore >= config.targetScore) {
-                        setLevel(l => l + 1);
-                        confetti({ particleCount: 150, spread: 360, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FFFFFF'] });
-                    }
+                    // No level progression in survival - just keep playing
+                    // Level display can show "streaks" or milestones if desired
+                } else if (initialMode === 'zen') {
+                    // Zen mode: No progression, just endless play
+                    // Do nothing special
                 } else {
                     // CAMPAIGN WIN LOGIC
                     // 1. Check Score
@@ -264,7 +330,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
             });
         }, 500);
 
-    }, [lastMatchTime, comboStreak, generateNumber, generateTarget, config, score, initialMode]);
+    }, [comboStreak, generateNumber, generateTarget, config, score, initialMode]);
 
     const handleMatchFail = useCallback((tileA: TileData, tileB: TileData) => {
         setGrid(prev => prev.map(row => row.map(t => {
@@ -352,6 +418,8 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' = 'survival',
     return {
         grid, target, score, level, isLevelComplete,
         lastOperator, memeState, operatorCounts,
-        handleTileClick, shuffleBoard, config, feedbackMessage, stars
+        handleTileClick, shuffleBoard, config, feedbackMessage, stars,
+        // Timer state (for survival mode)
+        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown
     };
 };

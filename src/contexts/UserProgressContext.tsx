@@ -20,32 +20,35 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     const [progress, setProgress] = useState<UserProgress | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Initial Load
+    // Initial Load - reset and reload when user changes
     useEffect(() => {
         const load = async () => {
+            // Reset progress when user changes (e.g., logout/login)
+            setProgress(null);
+            setLoading(true);
+
             let loadedData: UserProgress | null = null;
 
             if (currentUser) {
                 try {
                     loadedData = await getUserProgress(currentUser.uid);
-                } catch (e) {
-                    console.warn("Context: Firebase load failed (Offline?), trying local fallback", e);
+                } catch {
+                    // Firebase load failed, will try localStorage fallback
                 }
             }
 
-            // 2. Fallback to LocalStorage if Firebase missing or failed
-            if (!loadedData) {
+            // Fallback to LocalStorage if Firebase missing or failed
+            // Only use localStorage if user is logged in (not for fresh guests)
+            if (!loadedData && currentUser && !currentUser.isAnonymous) {
                 const local = localStorage.getItem(LS_KEY);
                 if (local) {
                     try {
                         const parsed = JSON.parse(local);
-                        // Only use local if it looks valid
                         if (parsed && parsed.currentLevel) {
-                            console.log("Context: Loaded from LocalStorage Fallback");
                             loadedData = parsed;
                         }
-                    } catch (e) {
-                        console.error("Failed to parse local progress", e);
+                    } catch {
+                        // Invalid local storage data, ignore
                     }
                 }
             }
@@ -59,9 +62,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     }, [currentUser]);
 
     const saveLevel = async (level: number, result: LevelResult) => {
-        console.log("Context: saveLevel called", { level, result, currentProgress: progress });
-
-        // 1. Get current state (Memory is Source of Truth)
+        // Get current state (Memory is Source of Truth)
         let current = progress;
 
         if (!current) {
@@ -72,17 +73,13 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                 levelStats: {},
                 unlockedOperators: ['+']
             };
-            console.log("Context: No progress found, initialized default", current);
         }
 
-        // 2. Compute new state synchronously
+        // Compute new state synchronously
         const oldResult = current.levelStats[level];
         const isImprovement = !oldResult || result.score > oldResult.score || result.stars > oldResult.stars;
 
-        console.log("Context: Improvement check", { oldResult, newResult: result, isImprovement });
-
         if (!isImprovement) {
-            console.log("Context: No improvement, skipping save");
             return;
         }
 
@@ -91,24 +88,21 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
 
         // Unlock next level logic
         if (level >= current.currentLevel && result.stars > 0) {
-            console.log(`Context: Unlocking next level! ${current.currentLevel} -> ${level + 1}`);
             next.currentLevel = level + 1;
         }
 
-        // 3. Update Memory Instantly
+        // Update Memory Instantly
         setProgress(next);
 
-        // 4. PERSIST (Dual Write Strategy)
+        // PERSIST (Dual Write Strategy)
         // Always save to LocalStorage as a backup/cache
-        console.log("Context: Saving to LocalStorage (Backup)");
         localStorage.setItem(LS_KEY, JSON.stringify(next));
 
         // If logged in, ALSO try to save to Firebase
         if (currentUser) {
-            console.log("Context: Persisting to Firebase");
             // Fire and forget - don't let network error stop the UI or local save
-            saveLevelProgress(currentUser.uid, level, result).catch(e => {
-                console.warn("Context: Firebase save failed (Offline?), but LocalStorage is safe.", e);
+            saveLevelProgress(currentUser.uid, level, result).catch(() => {
+                // Firebase save failed, but LocalStorage is safe
             });
         }
     };

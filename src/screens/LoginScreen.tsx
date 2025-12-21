@@ -19,9 +19,8 @@ export const LoginScreen = () => {
         try {
             await signInWithEmailAndPassword(auth, email, password);
             navigate('/modes');
-        } catch (err: any) {
+        } catch {
             setError('Failed to sign in. Please check your credentials.');
-            console.error(err);
         }
         setLoading(false);
     };
@@ -31,9 +30,8 @@ export const LoginScreen = () => {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
             navigate('/modes');
-        } catch (err) {
+        } catch {
             setError('Google Sign In failed.');
-            console.error(err);
         }
     };
 
@@ -66,6 +64,7 @@ export const LoginScreen = () => {
                         <input
                             type="email"
                             required
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -78,6 +77,7 @@ export const LoginScreen = () => {
                         <input
                             type="password"
                             required
+                            autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"

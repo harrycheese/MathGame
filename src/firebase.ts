@@ -23,13 +23,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const analytics = getAnalytics(app);
 
-// Debug Config (Safe Log - masks keys)
-console.log("Firebase Config Check:", {
-    apiKey: firebaseConfig.apiKey ? "***" : "MISSING",
-    projectId: firebaseConfig.projectId,
-    authDomain: firebaseConfig.authDomain
-});
-
 // Modern Persistence Setup
 let dbInstance;
 try {
@@ -37,12 +30,10 @@ try {
         localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager()
         }),
-        experimentalForceLongPolling: true, // Force robust connection (Fixes 'Client Offline' on restricted networks)
+        experimentalForceLongPolling: true, // Force robust connection
     });
-    console.log("Firebase Persistence Initialized Successfully (Long Polling Enabled)");
 } catch (e) {
-    console.error("Firebase Persistence Init Failed:", e);
-    // Fallback if needed, but for now we want to see the error
+    // Persistence init failed - rethrow to surface the issue
     throw e;
 }
 export const db = dbInstance;
@@ -82,12 +73,7 @@ export const saveLevelProgress = async (userId: string, level: number, result: L
                     updates.currentLevel = level + 1;
                 }
 
-                // Update total stars (Need to be careful not to double count if replaying)
-                // Simplified: just recalculate or increment diff? 
-                // Firestore increment is safer but logic is tricky with re-plays.
-                // For now, let's just increment if it's a new level, or diff if separate.
-                // Actually, let's just leave totalStars for a recalculation or cloud function later.
-                // Or:
+                // Update total stars diff
                 const starDiff = result.stars - (oldResult?.stars || 0);
                 if (starDiff > 0) {
                     updates.totalStars = increment(starDiff);
@@ -96,8 +82,8 @@ export const saveLevelProgress = async (userId: string, level: number, result: L
                 await updateDoc(userRef, updates);
             }
         }
-    } catch (error) {
-        console.error("Error saving progress:", error);
+    } catch {
+        // Error saving progress - silent fail for offline support
     }
 };
 
@@ -107,8 +93,8 @@ export const getUserProgress = async (userId: string): Promise<UserProgress | nu
         const snap = await getDoc(userRef);
         if (snap.exists()) return snap.data() as UserProgress;
         return null;
-    } catch (error) {
-        console.error("Error loading progress (Offline?):", error);
+    } catch {
+        // Error loading progress (likely offline)
         return null;
     }
 };
