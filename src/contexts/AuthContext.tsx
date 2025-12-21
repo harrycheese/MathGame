@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, ensureUserDocument } from '../firebase';
 
 interface AuthContextType {
     currentUser: User | null;
@@ -20,8 +20,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
+
+            // Ensure user document exists in Firestore
+            if (user) {
+                await ensureUserDocument(user.uid);
+            }
+
             setLoading(false);
         });
 

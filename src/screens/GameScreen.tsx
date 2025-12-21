@@ -6,13 +6,26 @@ import { GameControls } from '../components/GameControls';
 import { TargetCircle } from '../components/TargetCircle';
 import { TimerCircle } from '../components/TimerCircle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUserProgress } from '../hooks/useUserProgress';
+import { saveSessionAnalytics, updateSessionAnalytics, auth } from '../firebase';
+import type { OperatorStats } from '../types/game';
 
 export const GameScreen = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { saveLevel } = useUserProgress();
+    const savedSessionRef = useRef(false); // Prevent double-save on re-renders (Final Save)
+
+    // Autosave Refs (Zen Mode)
+    const currentSessionIdRef = useRef<string | null>(null);
+    const lastSavedAnalyticsRef = useRef<any>({
+        score: 0,
+        timeTaken: 0,
+        operatorCounts: { add: 0, subtract: 0, multiply: 0, divide: 0 },
+        combos: 0,
+        complexityScore: 0
+    });
 
     // Read params passed from LevelSelect or GameModes
     const modeParam = location.state?.mode;
@@ -25,21 +38,157 @@ export const GameScreen = () => {
         grid, target, score, level, isLevelComplete,
         lastOperator, operatorCounts,
         handleTileClick, shuffleBoard, memeState, config, feedbackMessage, stars,
-        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown
+        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        sessionAnalytics,
+        startTime
     } = useGameEngine(mode, initialLevel);
 
     const [showHelp, setShowHelp] = useState(false);
 
-    // Auto-save when Level Complete
+    // Helper to map UI operators to Schema operators
+    const getMappedOperatorStats = (ops: Record<string, number>): OperatorStats => ({
+        add: ops['+'] || 0,
+        subtract: ops['-'] || 0,
+        multiply: ops['×'] || 0,
+        divide: ops['÷'] || 0
+    });
+
+
+
+    // --- UNIVERSAL AUTOSAVE & SAVING LOGIC ---
+    const saveProgress = async (finalResult?: 'win' | 'loss' | 'abandoned', overrideTime?: number) => {
+        if (!auth.currentUser) return;
+
+        const now = Date.now();
+        const currentTimeTaken = overrideTime !== undefined ? overrideTime : ((now - startTime) / 1000);
+        const currentMappedOps = getMappedOperatorStats(sessionAnalytics.operatorCounts);
+
+        // Calculate DELTAS (Change since last save)
+        const last = lastSavedAnalyticsRef.current;
+        const deltas = {
+            totalEquationsSolved: 0, // Calculated from ops
+            totalTimePlayed: Math.max(0, currentTimeTaken - last.timeTaken),
+            averageSolveTime: 0,
+            operatorUsage: {
+                add: Math.max(0, currentMappedOps.add - last.operatorCounts.add),
+                subtract: Math.max(0, currentMappedOps.subtract - last.operatorCounts.subtract),
+                multiply: Math.max(0, currentMappedOps.multiply - last.operatorCounts.multiply),
+                divide: Math.max(0, currentMappedOps.divide - last.operatorCounts.divide),
+            },
+            averageComplexityScore: 0,
+            maxComplexityScore: 0,
+            totalCombos: Math.max(0, sessionAnalytics.totalCombos - last.combos),
+            maxComboStreak: 0,
+            lastPlayed: now,
+            sessionsPlayed: 0
+        };
+
+        deltas.totalEquationsSolved = deltas.operatorUsage.add + deltas.operatorUsage.subtract + deltas.operatorUsage.multiply + deltas.operatorUsage.divide;
+
+        // Validation: If strict nothing happened and checking for autosave (no final result), skip
+        if (!finalResult && deltas.totalEquationsSolved === 0 && deltas.totalTimePlayed < 1) return;
+
+        const sessionData = {
+            mode: mode,
+            level: mode === 'campaign' ? level : null, // null is valid in Firestore, undefined is not
+            score,
+            timeTaken: currentTimeTaken,
+            completedAt: now,
+            result: finalResult || 'abandoned', // Default to abandoned if intermediate save
+            analytics: {
+                operatorCounts: currentMappedOps,
+                combos: sessionAnalytics.totalCombos,
+                complexityScore: sessionAnalytics.totalComplexity
+            }
+        };
+
+        if (!currentSessionIdRef.current) {
+            // First Save -> Create Session
+            const newId = await saveSessionAnalytics(auth.currentUser.uid, sessionData);
+            if (newId) currentSessionIdRef.current = newId;
+        } else {
+            // Subsequent Save -> Update Session + Increment Delta
+            await updateSessionAnalytics(auth.currentUser.uid, currentSessionIdRef.current, sessionData, deltas as any);
+        }
+
+        // Update Snapshot
+        lastSavedAnalyticsRef.current = {
+            score,
+            timeTaken: currentTimeTaken,
+            operatorCounts: { ...currentMappedOps },
+            combos: sessionAnalytics.totalCombos,
+            complexityScore: sessionAnalytics.totalComplexity
+        };
+    };
+
+    // Keep a ref to the latest saveProgress function to avoid stale closures in intervals
+    const saveProgressRef = useRef(saveProgress);
     useEffect(() => {
-        if (isLevelComplete && mode === 'campaign') {
+        saveProgressRef.current = saveProgress;
+    });
+
+    // Periodic Autosave Interval (30s) - Runs for ALL modes now
+    useEffect(() => {
+        if (isLevelComplete || isGameOver) return; // Stop autosaving if finished
+
+        const interval = setInterval(() => {
+            // Periodic autosave triggered
+            saveProgressRef.current(); // Use ref to get latest function
+        }, 30000);
+
+        return () => clearInterval(interval);
+    }, [isLevelComplete, isGameOver]); // Only re-setup when game ends
+
+    // Save on Visibility Change (Tab Switch/Close)
+    useEffect(() => {
+        if (isLevelComplete || isGameOver) return;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                // Autosave on tab hide
+                saveProgressRef.current();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [isLevelComplete, isGameOver]);
+
+
+    // Auto-save when Level Complete (CAMPAIGN)
+    useEffect(() => {
+        if (isLevelComplete && mode === 'campaign' && !savedSessionRef.current) {
+            savedSessionRef.current = true;
+            const now = Date.now();
+
+            // 1. Save Progress (Unlock next level etc)
             saveLevel(level, {
                 score,
                 stars,
-                completedAt: Date.now()
+                completedAt: now
             });
+
+            // 2. Save Final Analytics (Win)
+            saveProgress('win', (now - startTime) / 1000);
         }
-    }, [isLevelComplete, mode, level, score, stars]);
+    }, [isLevelComplete, mode, level, score, stars, saveLevel, sessionAnalytics, startTime]);
+
+    // Auto-save on Game Over (SURVIVAL)
+    useEffect(() => {
+        if (isGameOver && mode === 'survival' && !savedSessionRef.current) {
+            savedSessionRef.current = true;
+            // 2. Save Final Analytics (Loss)
+            saveProgress('loss', (Date.now() - startTime) / 1000);
+        }
+    }, [isGameOver, mode, score, sessionAnalytics, startTime]);
+
+    // Handle manual exit (Back button)
+    const handleExit = () => {
+        // Validation: If not finished, save stats on exit
+        if (!isLevelComplete && !isGameOver && !savedSessionRef.current) {
+            savedSessionRef.current = true;
+            saveProgress('abandoned'); // Explicitly mark as abandoned
+        }
+        navigate('/modes');
+    };
 
     return (
         <div className="min-h-screen bg-gray-950 flex flex-col items-center px-4 pt-2 relative overflow-hidden select-none touch-none">
@@ -58,6 +207,7 @@ export const GameScreen = () => {
                     allowedOps={config.ops}
                     requiredOps={mode === 'campaign' ? config.requiredOps : undefined}
                     showTarget={mode !== 'survival'} // Hide target in HUD for survival (shown separately)
+                    onExit={handleExit}
                 />
 
                 {/* SURVIVAL MODE: Target + Timer Side by Side */}

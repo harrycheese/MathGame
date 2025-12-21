@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { getUserProgress, saveLevelProgress } from '../firebase';
@@ -11,6 +11,7 @@ interface UserProgressContextType {
     progress: UserProgress | null;
     loading: boolean;
     saveLevel: (level: number, result: LevelResult) => Promise<void>;
+    refetch: () => Promise<void>; // Added: manual refresh function
 }
 
 const UserProgressContext = createContext<UserProgressContextType | undefined>(undefined);
@@ -20,46 +21,48 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     const [progress, setProgress] = useState<UserProgress | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Load function extracted so it can be called on demand
+    const loadProgress = useCallback(async () => {
+        if (!currentUser) {
+            setProgress(null);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        let loadedData: UserProgress | null = null;
+
+        try {
+            loadedData = await getUserProgress(currentUser.uid);
+        } catch {
+            // Firebase load failed, will try localStorage fallback
+        }
+
+        // Fallback to LocalStorage if Firebase missing or failed
+        // Only use localStorage if user is logged in (not for fresh guests)
+        if (!loadedData && currentUser && !currentUser.isAnonymous) {
+            const local = localStorage.getItem(LS_KEY);
+            if (local) {
+                try {
+                    const parsed = JSON.parse(local);
+                    if (parsed && parsed.currentLevel) {
+                        loadedData = parsed;
+                    }
+                } catch {
+                    // Invalid local storage data, ignore
+                }
+            }
+        }
+
+        setProgress(loadedData);
+        setLoading(false);
+    }, [currentUser]);
+
     // Initial Load - reset and reload when user changes
     useEffect(() => {
-        const load = async () => {
-            // Reset progress when user changes (e.g., logout/login)
-            setProgress(null);
-            setLoading(true);
-
-            let loadedData: UserProgress | null = null;
-
-            if (currentUser) {
-                try {
-                    loadedData = await getUserProgress(currentUser.uid);
-                } catch {
-                    // Firebase load failed, will try localStorage fallback
-                }
-            }
-
-            // Fallback to LocalStorage if Firebase missing or failed
-            // Only use localStorage if user is logged in (not for fresh guests)
-            if (!loadedData && currentUser && !currentUser.isAnonymous) {
-                const local = localStorage.getItem(LS_KEY);
-                if (local) {
-                    try {
-                        const parsed = JSON.parse(local);
-                        if (parsed && parsed.currentLevel) {
-                            loadedData = parsed;
-                        }
-                    } catch {
-                        // Invalid local storage data, ignore
-                    }
-                }
-            }
-
-            if (loadedData) {
-                setProgress(loadedData);
-            }
-            setLoading(false);
-        };
-        load();
-    }, [currentUser]);
+        setProgress(null); // Reset before loading
+        loadProgress();
+    }, [loadProgress]);
 
     const saveLevel = async (level: number, result: LevelResult) => {
         // Get current state (Memory is Source of Truth)
@@ -76,7 +79,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Compute new state synchronously
-        const oldResult = current.levelStats[level];
+        const oldResult = current.levelStats?.[level];
         const isImprovement = !oldResult || result.score > oldResult.score || result.stars > oldResult.stars;
 
         if (!isImprovement) {
@@ -108,7 +111,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <UserProgressContext.Provider value={{ progress, loading, saveLevel }}>
+        <UserProgressContext.Provider value={{ progress, loading, saveLevel, refetch: loadProgress }}>
             {children}
         </UserProgressContext.Provider>
     );

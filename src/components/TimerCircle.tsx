@@ -113,7 +113,9 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                         strokeLinecap="round"
                         style={{
                             strokeDasharray: circumference,
+                            strokeDashoffset, // Ensure initial value is defined to prevent "undefined" animation error
                         }}
+                        initial={{ strokeDashoffset }}
                         animate={{
                             strokeDashoffset: strokeDashoffset,
                         }}
