@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface TimerCircleProps {
     timeRemaining: number; // in seconds
@@ -11,6 +11,7 @@ interface TimerCircleProps {
 export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: TimerCircleProps) => {
     const [showBonus, setShowBonus] = useState<number | null>(null);
     const [bonusKey, setBonusKey] = useState(0); // Force re-animation on each bonus
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Calculate percentage for ring fill
     const percentage = Math.max(0, Math.min(100, (timeRemaining / maxTime) * 100));
@@ -49,11 +50,23 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
     // Show bonus animation inside circle
     useEffect(() => {
         if (timeBonus && timeBonus > 0) {
+            // Clear any existing timeout if we get a NEW bonus fast
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+
             setShowBonus(timeBonus);
             setBonusKey(prev => prev + 1);
-            const timer = setTimeout(() => setShowBonus(null), 1200);
-            return () => clearTimeout(timer);
+
+            // Set new timeout to clear the display
+            timeoutRef.current = setTimeout(() => {
+                setShowBonus(null);
+                timeoutRef.current = null;
+            }, 1000);
         }
+        // NOTE: We intentionally DO NOT clear the timeout in the cleanup function
+        // because the parent component (GameEngine) resets `timeBonus` to null after 1s.
+        // If we cleared it here, the resetting of the prop would cancel our visibility timer!
     }, [timeBonus]);
 
     // SVG circle parameters (matches target size ~128px)
@@ -100,7 +113,9 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                         strokeLinecap="round"
                         style={{
                             strokeDasharray: circumference,
+                            strokeDashoffset, // Ensure initial value is defined to prevent "undefined" animation error
                         }}
+                        initial={{ strokeDashoffset }}
                         animate={{
                             strokeDashoffset: strokeDashoffset,
                         }}
@@ -109,8 +124,8 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                 </svg>
 
                 {/* Content (Countdown, Time, or Bonus) */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                    <AnimatePresence mode="wait">
+                <div className="absolute inset-0 z-10">
+                    <AnimatePresence>
                         {countdown !== null && countdown !== undefined && countdown > 0 ? (
                             // COUNTDOWN: 3, 2, 1
                             <motion.div
@@ -118,12 +133,8 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                                 initial={{ scale: 2, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.5, opacity: 0 }}
-                                transition={{
-                                    type: "spring",
-                                    stiffness: 300,
-                                    damping: 20
-                                }}
-                                className="text-5xl font-black text-white"
+                                transition={{ duration: 0.2 }}
+                                className="absolute inset-0 flex items-center justify-center pt-2 text-5xl font-black text-white"
                                 style={{ textShadow: '0 0 40px rgba(255, 255, 255, 0.8)' }}
                             >
                                 {countdown}
@@ -135,8 +146,8 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                                 initial={{ scale: 0.5, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 1.5, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                className="text-3xl font-black text-green-400"
+                                transition={{ duration: 0.2 }}
+                                className="absolute inset-0 flex items-center justify-center pt-2 text-3xl font-black text-green-400"
                                 style={{ textShadow: '0 0 30px rgba(34, 197, 94, 0.8)' }}
                             >
                                 GO!
@@ -152,7 +163,7 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                                     stiffness: 400,
                                     damping: 15
                                 }}
-                                className={`text-4xl font-black ${showBonus >= 5 ? 'text-yellow-400' : 'text-green-400'}`}
+                                className={`absolute inset-0 flex items-center justify-center pt-2 text-4xl font-black ${showBonus >= 5 ? 'text-yellow-400' : 'text-green-400'}`}
                                 style={{
                                     textShadow: showBonus >= 5
                                         ? '0 0 30px rgba(250, 204, 21, 0.8)'
@@ -167,24 +178,27 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="flex flex-col items-center"
+                                transition={{ duration: 0.2 }}
+                                className="absolute inset-0"
                             >
-                                <span className={`text-[10px] font-bold ${colors.label} mb-1 tracking-[0.2em] uppercase`}>
+                                <span className={`absolute top-6 left-0 right-0 text-center text-[10px] font-bold ${colors.label} tracking-[0.2em] uppercase`}>
                                     TIME
                                 </span>
-                                <motion.span
-                                    className={`text-4xl font-black italic ${colors.text} tracking-tight leading-none`}
-                                    animate={{
-                                        scale: percentage < 25 ? [1, 1.05, 1] : 1,
-                                    }}
-                                    transition={{
-                                        duration: 0.5,
-                                        repeat: percentage < 25 ? Infinity : 0,
-                                    }}
-                                    style={{ textShadow: `0 0 20px ${colors.glow}` }}
-                                >
-                                    {formatTime(timeRemaining)}
-                                </motion.span>
+                                <div className="absolute inset-0 flex items-center justify-center pt-2">
+                                    <motion.span
+                                        className={`text-4xl font-black italic ${colors.text} tracking-tight leading-none`}
+                                        animate={{
+                                            scale: percentage < 25 ? [1, 1.05, 1] : 1,
+                                        }}
+                                        transition={{
+                                            duration: 0.5,
+                                            repeat: percentage < 25 ? Infinity : 0,
+                                        }}
+                                        style={{ textShadow: `0 0 20px ${colors.glow}` }}
+                                    >
+                                        {formatTime(timeRemaining)}
+                                    </motion.span>
+                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>

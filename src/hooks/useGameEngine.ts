@@ -29,6 +29,11 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     const [operatorCounts, setOperatorCounts] = useState<Record<string, number>>({
         '+': 0, '-': 0, '×': 0, '÷': 0
     });
+    // Analytics State
+    const [totalCombos, setTotalCombos] = useState(0);
+    const [maxComboStreak, setMaxComboStreak] = useState(0);
+    const [totalComplexity, setTotalComplexity] = useState(0);
+
     const [memeState, setMemeState] = useState<boolean>(false);
 
     // Timer State (for Survival mode)
@@ -184,6 +189,14 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         return Math.floor(BASE * opMult * magnitude * speedBonus);
     };
 
+    const calculateMatchComplexity = (op: string, valA: number, valB: number) => {
+        let weight = 1;
+        if (op === '-') weight = 1.2;
+        if (op === '×') weight = 2;
+        if (op === '÷') weight = 3;
+        return (valA + valB) * weight;
+    };
+
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
         const now = Date.now();
         const timeSinceLast = lastMatchTimeRef.current > 0 ? now - lastMatchTimeRef.current : Infinity;
@@ -214,6 +227,10 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         setLastOperator(operator);
         setTimeout(() => setLastOperator(null), 1000);
 
+        // Complexity
+        const complexity = calculateMatchComplexity(operator, tileA.value, tileB.value);
+        setTotalComplexity(prev => prev + complexity);
+
         // Score
         const points = calculateScore(operator, tileA.value, tileB.value, timeSinceLast);
 
@@ -221,7 +238,12 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         const isCombo = timeSinceLast < 3500; // 3.5 seconds for combo
         let finalPoints = points;
         if (isCombo) {
-            setComboStreak(p => p + 1);
+            setComboStreak(p => {
+                const newStreak = p + 1;
+                setMaxComboStreak(m => Math.max(m, newStreak));
+                return newStreak;
+            });
+            setTotalCombos(prev => prev + 1);
             finalPoints = Math.floor(points * (1 + (comboStreak * 0.1)));
         } else {
             setComboStreak(0);
@@ -420,6 +442,14 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         lastOperator, memeState, operatorCounts,
         handleTileClick, shuffleBoard, config, feedbackMessage, stars,
         // Timer state (for survival mode)
-        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown
+        timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        // Analytics
+        sessionAnalytics: {
+            operatorCounts,
+            totalCombos,
+            maxComboStreak,
+            totalComplexity
+        },
+        startTime // Exposed for accurate duration tracking
     };
 };
