@@ -28,10 +28,8 @@ export const Tile = ({ tile, onClick }: TileProps) => {
 
     return (
         <motion.div
-            // Removed 'layout' prop - it causes expensive recalculations on Safari
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
+            // Removed initial/exit animations - they caused white flash on grid rebuild
+            // Each tile used to flash to opacity:0 when grid was rebuilt after match
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             style={{
                 width: '100%',
@@ -39,7 +37,7 @@ export const Tile = ({ tile, onClick }: TileProps) => {
                 gridColumn: col + 1,
                 gridRow: row + 1,
                 zIndex: isSelected || isWrong ? 10 : 1,
-                willChange: 'transform, opacity', // GPU acceleration hint
+                willChange: 'transform', // GPU acceleration hint
             }}
         >
             <motion.div
