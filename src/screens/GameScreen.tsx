@@ -39,6 +39,9 @@ export const GameScreen = () => {
         lastOperator, operatorCounts,
         handleTileClick, shuffleBoard, memeState, config, feedbackMessage, stars,
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        // Power-up tools
+        useHint, useFiftyFifty, resetTargetNumber,
+        hintState, isShuffling, isResettingTarget, isGridHalved,
         squareState, primeState, // Easter egg states
         sessionAnalytics,
         startTime
@@ -210,13 +213,14 @@ export const GameScreen = () => {
                     allowedOps={config.ops}
                     requiredOps={mode === 'campaign' ? config.requiredOps : undefined}
                     showTarget={mode !== 'survival'} // Hide target in HUD for survival (shown separately)
+                    isResettingTarget={isResettingTarget}
                     onExit={handleExit}
                 />
 
                 {/* SURVIVAL MODE: Target + Timer Side by Side */}
                 {mode === 'survival' && (
                     <div className="flex items-center justify-center gap-6 py-2 mb-2">
-                        <TargetCircle target={target} memeState={memeState} squareState={squareState} primeState={primeState} />
+                        <TargetCircle target={target} memeState={memeState} squareState={squareState} primeState={primeState} isResettingTarget={isResettingTarget} />
                         <TimerCircle
                             timeRemaining={timeRemaining}
                             maxTime={INITIAL_TIME}
@@ -313,12 +317,22 @@ export const GameScreen = () => {
                     <GameBoard
                         grid={grid}
                         onTileClick={handleTileClick}
+                        hintState={hintState}
                     />
                 </div>
 
                 {/* 3. Utilities (Controls) */}
                 <div className="w-full max-w-md pb-8">
-                    <GameControls onShuffle={shuffleBoard} />
+                    <GameControls
+                        onShuffle={shuffleBoard}
+                        onHint={useHint}
+                        onFiftyFifty={useFiftyFifty}
+                        onResetTarget={resetTargetNumber}
+                        isGridHalved={isGridHalved}
+                        isShuffling={isShuffling}
+                        isResettingTarget={isResettingTarget}
+                        isSurvivalMode={mode === 'survival'}
+                    />
                 </div>
             </div>
 

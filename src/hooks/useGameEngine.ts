@@ -73,6 +73,13 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     // Pre-game countdown (3, 2, 1, GO!)
     const [countdown, setCountdown] = useState<number | null>(initialMode === 'survival' ? 3 : null);
 
+    // Power-up Tool States
+    // Power-up Tool States
+    const [hintState, setHintState] = useState<{ tileId: string; operator: string } | null>(null);
+    const [isShuffling, setIsShuffling] = useState<boolean>(false);
+    const [isResettingTarget, setIsResettingTarget] = useState<boolean>(false);
+    const [isGridHalved, setIsGridHalved] = useState<boolean>(false);
+
     // Update config when level changes (only for campaign mode)
     // Zen and Survival modes have all operators unlocked, no level progression
     useEffect(() => {
@@ -137,8 +144,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     }, [initialMode, countdown]);
 
     // Timer countdown effect (only for survival mode, after countdown finishes)
+    // PAUSES during tool animations (Reset Target, Shuffle) AND easter egg animations
     useEffect(() => {
-        if (initialMode !== 'survival' || isGameOver || countdown !== null || isTimerPaused) return;
+        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling || isTimerPaused) return;
 
         const interval = setInterval(() => {
             setTimeRemaining(prev => {
@@ -151,7 +159,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [initialMode, isGameOver, countdown, isTimerPaused]);
+    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling, isTimerPaused]);
 
 
     // SMART TARGET GENERATION (Op-First)
@@ -226,6 +234,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     };
 
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
+        setHintState(null); // Clear hint on successful match
         const now = Date.now();
         const timeSinceLast = lastMatchTimeRef.current > 0 ? now - lastMatchTimeRef.current : Infinity;
 
@@ -351,80 +360,102 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
 
         // Grid Refill & Level Check
         setTimeout(() => {
-            setGrid(prev => {
-                const newGrid = prev.map(row => [...row]);
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    const columnValues: TileData[] = [];
-                    for (let r = 0; r < GRID_SIZE; r++) { columnValues.push(prev[r][c]); }
-                    const activeTiles = columnValues.filter(t => t.status !== 'matched');
-                    const missingCount = GRID_SIZE - activeTiles.length;
-                    const newTiles: TileData[] = [];
-                    for (let i = 0; i < missingCount; i++) {
-                        newTiles.push({
-                            id: generateId(), value: generateNumber(config), row: i, col: c, status: 'idle'
+            // If grid was halved (50/50 used), regenerate complete new grid
+            if (isGridHalved) {
+                const newGrid: TileData[][] = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    const row: TileData[] = [];
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        row.push({
+                            id: generateId(),
+                            value: generateNumber(config),
+                            row: r,
+                            col: c,
+                            status: 'idle'
                         });
                     }
-                    const finalColumn = [...newTiles, ...activeTiles];
-                    for (let r = 0; r < GRID_SIZE; r++) {
-                        newGrid[r][c] = { ...finalColumn[r], row: r, col: c, status: 'idle' };
-                    }
+                    newGrid.push(row);
                 }
-
-                // CHECK LEVEL PROGRESSION
-                const currentTotalScore = score + finalPoints;
-
-                if (initialMode === 'survival') {
-                    // No level progression in survival - just keep playing
-                    // Level display can show "streaks" or milestones if desired
-                } else if (initialMode === 'zen') {
-                    // Zen mode: No progression, just endless play
-                    // Do nothing special
-                } else {
-                    // CAMPAIGN WIN LOGIC
-                    // 1. Check Score
-                    const scoreMet = currentTotalScore >= config.targetScore;
-
-                    // 2. Check Quests (Required Ops)
-                    let questsMet = true;
-                    if (config.requiredOps) {
-                        // Current counts including this match
-                        const currentCounts = { ...operatorCounts, [operator]: (operatorCounts[operator] || 0) + 1 };
-                        for (const [op, requiredCount] of Object.entries(config.requiredOps)) {
-                            if ((currentCounts[op] || 0) < requiredCount) {
-                                questsMet = false;
-                                break;
-                            }
+                setGrid(newGrid);
+                setIsGridHalved(false); // Reset for next round
+                setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
+            } else {
+                // Normal refill - just replace matched tiles
+                setGrid(prev => {
+                    const newGrid = prev.map(row => [...row]);
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const columnValues: TileData[] = [];
+                        for (let r = 0; r < GRID_SIZE; r++) { columnValues.push(prev[r][c]); }
+                        const activeTiles = columnValues.filter(t => t.status !== 'matched' && t.value > 0);
+                        const missingCount = GRID_SIZE - activeTiles.length;
+                        const newTiles: TileData[] = [];
+                        for (let i = 0; i < missingCount; i++) {
+                            newTiles.push({
+                                id: generateId(), value: generateNumber(config), row: i, col: c, status: 'idle'
+                            });
+                        }
+                        const finalColumn = [...newTiles, ...activeTiles];
+                        for (let r = 0; r < GRID_SIZE; r++) {
+                            newGrid[r][c] = { ...finalColumn[r], row: r, col: c, status: 'idle' };
                         }
                     }
+                    setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
+                    return newGrid;
+                });
+            }
 
-                    if (scoreMet && questsMet) {
-                        setIsLevelComplete(true);
+            // CHECK LEVEL PROGRESSION
+            const currentTotalScore = score + finalPoints;
 
-                        // Calculate Stars
-                        const endlessTime = (Date.now() - startTime) / 1000;
-                        let earnedStars = 1;
-                        // Use new config fields or fallback
-                        const goldTime = config.threeStarSeconds || 60;
-                        const silverTime = config.twoStarSeconds || (goldTime * 1.5);
+            if (initialMode === 'survival') {
+                // No level progression in survival - just keep playing
+                // Level display can show "streaks" or milestones if desired
+            } else if (initialMode === 'zen') {
+                // Zen mode: No progression, just endless play
+                // Do nothing special
+            } else {
+                // CAMPAIGN WIN LOGIC
+                // 1. Check Score
+                const scoreMet = currentTotalScore >= config.targetScore;
 
-                        if (endlessTime <= goldTime) earnedStars = 3;
-                        else if (endlessTime <= silverTime) earnedStars = 2;
-
-                        setStars(earnedStars);
-
-                        // Bigger confetti for 3 stars
-                        const particleCount = earnedStars === 3 ? 500 : 200;
-                        confetti({ particleCount, spread: 360, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FFFFFF'] });
+                // 2. Check Quests (Required Ops)
+                let questsMet = true;
+                if (config.requiredOps) {
+                    // Current counts including this match
+                    const currentCounts = { ...operatorCounts, [operator]: (operatorCounts[operator] || 0) + 1 };
+                    for (const [op, requiredCount] of Object.entries(config.requiredOps)) {
+                        if ((currentCounts[op] || 0) < requiredCount) {
+                            questsMet = false;
+                            break;
+                        }
                     }
-                    // Else: Overtime! (UI should show what's missing)
                 }
 
-                setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
-                return newGrid;
-            });
+                if (scoreMet && questsMet) {
+                    setIsLevelComplete(true);
+
+                    // Calculate Stars
+                    const endlessTime = (Date.now() - startTime) / 1000;
+                    let earnedStars = 1;
+                    // Use new config fields or fallback
+                    const goldTime = config.threeStarSeconds || 60;
+                    const silverTime = config.twoStarSeconds || (goldTime * 1.5);
+
+                    if (endlessTime <= goldTime) earnedStars = 3;
+                    else if (endlessTime <= silverTime) earnedStars = 2;
+
+                    setStars(earnedStars);
+
+                    // Bigger confetti for 3 stars
+                    const particleCount = earnedStars === 3 ? 500 : 200;
+                    confetti({ particleCount, spread: 360, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FFFFFF'] });
+                }
+                // Else: Overtime! (UI should show what's missing)
+            }
+
         }, 500);
 
-    }, [comboStreak, generateNumber, generateTarget, config, score, initialMode, target, operatorCounts, startTime]);
+    }, [comboStreak, generateNumber, generateTarget, config, score, initialMode, isGridHalved, target, operatorCounts, startTime]);
 
     const handleMatchFail = useCallback((tileA: TileData, tileB: TileData) => {
         setGrid(prev => prev.map(row => row.map(t => {
@@ -488,33 +519,297 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         if (newSelected.length === 2) checkMatch(newSelected[0], newSelected[1]);
     }, [grid, selectedTiles, checkMatch]);
 
-    const shuffleBoard = useCallback(() => {
-        setGrid(prev => {
-            const flatTiles = prev.flat();
-            for (let i = flatTiles.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                const temp = flatTiles[i].value;
-                flatTiles[i].value = flatTiles[j].value;
-                flatTiles[j].value = temp;
-                flatTiles[i].status = 'idle';
-                flatTiles[j].status = 'idle';
-            }
-            const newGrid: TileData[][] = [];
-            let index = 0;
-            for (let r = 0; r < GRID_SIZE; r++) {
-                const row: TileData[] = [];
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    row.push({ ...prev[r][c], value: flatTiles[index].value, status: 'idle' });
-                    index++;
+    // Helper: Find all valid tile pairs that match the target
+    const findValidPairs = useCallback((currentGrid: TileData[][], currentTarget: number, ops: string[]) => {
+        const pairs: { tileA: TileData; tileB: TileData; operator: string }[] = [];
+        const flatTiles = currentGrid.flat().filter(t => t.status !== 'matched');
+
+        for (let i = 0; i < flatTiles.length; i++) {
+            for (let j = i + 1; j < flatTiles.length; j++) {
+                const a = flatTiles[i];
+                const b = flatTiles[j];
+
+                if (ops.includes('+') && a.value + b.value === currentTarget) {
+                    pairs.push({ tileA: a, tileB: b, operator: '+' });
                 }
-                newGrid.push(row);
+                if (ops.includes('-') && Math.abs(a.value - b.value) === currentTarget) {
+                    pairs.push({ tileA: a, tileB: b, operator: '-' });
+                }
+                if (ops.includes('×') && a.value * b.value === currentTarget) {
+                    pairs.push({ tileA: a, tileB: b, operator: '×' });
+                }
+                if (ops.includes('÷') && (a.value / b.value === currentTarget || b.value / a.value === currentTarget)) {
+                    pairs.push({ tileA: a, tileB: b, operator: '÷' });
+                }
             }
-            setTimeout(() => setTarget(generateTarget(newGrid, config)), 0);
-            return newGrid;
-        });
+        }
+        return pairs;
+    }, []);
+
+    // Helper: Apply time penalty with visual feedback
+    const applyTimePenalty = useCallback((seconds: number) => {
+        if (initialMode === 'survival') {
+            setTimeRemaining(prev => Math.max(0, prev - seconds));
+            setTimeBonus(-seconds); // Trigger red negative bonus
+            setTimeout(() => setTimeBonus(null), 1000);
+        }
+    }, [initialMode]);
+
+    // POWER-UP: Hint - Highlights one valid tile
+    const useHint = useCallback(() => {
+        const validPairs = findValidPairs(grid, target, config.ops);
+        if (validPairs.length > 0) {
+            // Pick a random valid pair and highlight one tile
+            const pair = validPairs[Math.floor(Math.random() * validPairs.length)];
+            const tileToHint = Math.random() > 0.5 ? pair.tileA : pair.tileB;
+            setHintState({ tileId: tileToHint.id, operator: pair.operator });
+
+            // Time penalty in survival mode
+            applyTimePenalty(3);
+        }
+    }, [grid, target, config.ops, findValidPairs, initialMode, applyTimePenalty]);
+
+    // POWER-UP: 50/50 - Removes half the tiles with gravity effect
+    const useFiftyFifty = useCallback(() => {
+        if (isGridHalved) return; // Already used
+
+        const validPairs = findValidPairs(grid, target, config.ops);
+        if (validPairs.length === 0) return;
+
+        // Protect one valid pair (prefer hinted pair if active)
+        let protectedPair = validPairs[0];
+        // If a hint is active, ensure we DO NOT remove the hinted tile or its partner
+        if (hintState) {
+            const hintedPair = validPairs.find(p => p.tileA.id === hintState.tileId || p.tileB.id === hintState.tileId);
+            if (hintedPair) {
+                protectedPair = hintedPair;
+                // Also ensures operator matches if needed? 
+                // The hintOperator is stored in hintState.operator. 
+                // If the pair found has a different operator, maybe update hint? 
+                // But usually we just want to save the Tiles.
+            }
+        }
+        const protectedIds = new Set([protectedPair.tileA.id, protectedPair.tileB.id]);
+
+        // Get all tiles and identify which to keep
+        const flatTiles = grid.flat();
+        const removableTiles = flatTiles.filter(t => !protectedIds.has(t.id));
+
+        // Keep 18 tiles total: 2 protected + 16 others
+        const numToKeep = 16;
+        const shuffled = [...removableTiles].sort(() => Math.random() - 0.5);
+        const tilesToKeepIds = new Set(shuffled.slice(0, numToKeep).map(t => t.id));
+
+        // Add protected tiles
+        protectedIds.forEach(id => tilesToKeepIds.add(id));
+
+        // Get remaining tiles and rebuild into 3-row grid
+        const remainingTiles = flatTiles.filter(t => tilesToKeepIds.has(t.id));
+
+        // Build new compact 3-row grid (bottom-aligned visually)
+        const newGrid: TileData[][] = [];
+        let tileIndex = 0;
+        for (let r = 0; r < 3; r++) {
+            const row: TileData[] = [];
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (tileIndex < remainingTiles.length) {
+                    row.push({
+                        ...remainingTiles[tileIndex],
+                        row: r,
+                        col: c,
+                        status: 'idle'
+                    });
+                    tileIndex++;
+                }
+            }
+            if (row.length > 0) newGrid.push(row);
+        }
+
+        setGrid(newGrid);
+        setIsGridHalved(true);
         setSelectedTiles([]);
-        confetti({ particleCount: 50, spread: 120, origin: { y: 0.6 } });
-    }, [generateTarget, config]);
+        // setHintState(null); // Keep hint active
+
+        // Time penalty in survival mode
+        applyTimePenalty(3);
+    }, [grid, target, config.ops, findValidPairs, isGridHalved, initialMode, hintState, applyTimePenalty]);
+
+    // Track latest grid state for async operations (avoid stale closures)
+    const gridRef = useRef(grid);
+    useEffect(() => {
+        gridRef.current = grid;
+    }, [grid]);
+
+    const isResettingTargetRef = useRef(isResettingTarget);
+    useEffect(() => {
+        isResettingTargetRef.current = isResettingTarget;
+    }, [isResettingTarget]);
+
+    // POWER-UP: Reset Target - Generates new target with animation
+    const resetTargetNumber = useCallback(() => {
+        setIsResettingTarget(true);
+        applyTimePenalty(3);
+
+
+        // Roulette animation - cycle through numbers
+        let cycles = 0;
+        const maxCycles = 15;
+        const interval = setInterval(() => {
+            // Show random numbers during spin
+            setTarget(Math.floor(Math.random() * 50) + 1);
+            cycles++;
+
+            if (cycles >= maxCycles) {
+                clearInterval(interval);
+
+                // Get fresh grid
+                const currentGrid = gridRef.current;
+                let finalTarget = 10;
+                let targetFound = false;
+
+                // Case: Hint is active - ensure target is reachable with hinted tile
+                if (hintState) {
+                    const flatTiles = currentGrid.flat().filter(t => t.value > 0);
+                    const hintTile = flatTiles.find(t => t.id === hintState.tileId);
+
+                    if (hintTile && flatTiles.length >= 2) {
+                        try {
+                            // Find a partner that is NOT the hint tile
+                            let partnerTile = flatTiles[Math.floor(Math.random() * flatTiles.length)];
+                            let tries = 0;
+                            while (partnerTile.id === hintTile.id && tries < 10) {
+                                partnerTile = flatTiles[Math.floor(Math.random() * flatTiles.length)];
+                                tries++;
+                            }
+
+                            if (partnerTile.id !== hintTile.id) {
+                                // Generate target from this specific pair
+                                const op = config.ops[Math.floor(Math.random() * config.ops.length)];
+                                switch (op) {
+                                    case '+': finalTarget = hintTile.value + partnerTile.value; break;
+                                    case '-': finalTarget = Math.abs(hintTile.value - partnerTile.value); break;
+                                    case '×': finalTarget = hintTile.value * partnerTile.value; break;
+                                    case '÷':
+                                        const max = Math.max(hintTile.value, partnerTile.value);
+                                        const min = Math.min(hintTile.value, partnerTile.value);
+                                        if (min !== 0 && max % min === 0) finalTarget = max / min;
+                                        else finalTarget = hintTile.value + partnerTile.value; // Fallback
+                                        break;
+                                }
+                                targetFound = true;
+                                setHintState({ ...hintState, operator: op });
+                            }
+                        } catch (e) { console.error("Error generating hint target", e); }
+                    }
+                }
+
+                if (!targetFound) {
+                    finalTarget = generateTarget(currentGrid, config);
+                }
+
+                setTarget(finalTarget);
+                setIsResettingTarget(false);
+                // Penalty already applied at start via applyTimePenalty
+            }
+        }, 80);
+    }, [config, generateTarget, initialMode, hintState]);
+
+    // SHUFFLE with smooth slot machine animation (progressive timing)
+    const shuffleBoard = useCallback(() => {
+        setIsShuffling(true);
+        applyTimePenalty(3);
+        // setHintedTileId(null); // Keep hint active
+
+        // Progressive timing: starts fast, slows down (slot machine effect)
+        const timings = [50, 50, 75, 100, 125, 150, 175, 200, 250, 300];
+        let cycleIndex = 0;
+
+        const runCycle = () => {
+            // Shuffle all tile values simultaneously
+            setGrid(prev => {
+                const flatTiles = prev.flat();
+                const values = flatTiles.map(t => t.value);
+
+                // Fisher-Yates shuffle on values only
+                for (let i = values.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [values[i], values[j]] = [values[j], values[i]];
+                }
+
+                // Rebuild grid with shuffled values
+                const newGrid: TileData[][] = [];
+                let valueIndex = 0;
+                for (let r = 0; r < prev.length; r++) {
+                    const row: TileData[] = [];
+                    for (let c = 0; c < prev[r].length; c++) {
+                        row.push({
+                            ...prev[r][c],
+                            value: values[valueIndex],
+                            status: 'idle'
+                        });
+                        valueIndex++;
+                    }
+                    newGrid.push(row);
+                }
+                return newGrid;
+            });
+
+            cycleIndex++;
+            if (cycleIndex < timings.length) {
+                setTimeout(runCycle, timings[cycleIndex]);
+            } else {
+                setIsShuffling(false);
+
+                // Final check: If hint is active, ensure the specific highlighted TILE has a valid match
+                // Final check: If hint is active, ensure the specific highlighted TILE has a valid match
+                if (hintState && !isResettingTargetRef.current) {
+                    setGrid(finalGrid => {
+                        const flat = finalGrid.flat();
+                        const hintTile = flat.find(t => t.id === hintState.tileId);
+                        if (!hintTile) return finalGrid;
+
+                        const validPairsAfterShuffle = findValidPairs(finalGrid, target, config.ops);
+
+                        // Check if hint is solvable
+                        const solvingPair = validPairsAfterShuffle.find(p => p.tileA.id === hintTile.id || p.tileB.id === hintTile.id);
+
+                        if (solvingPair) {
+                            // It is solvable. Update operator if it changed (e.g. from + to -)
+                            if (solvingPair.operator !== hintState.operator) {
+                                setTimeout(() => setHintState(prev => prev ? { ...prev, operator: solvingPair.operator } : null), 0);
+                            }
+                            return finalGrid;
+                        }
+
+                        // Not solvable. Force swap with a valid pair.
+                        if (validPairsAfterShuffle.length > 0) {
+                            const pair = validPairsAfterShuffle[0];
+                            const sourceTile = pair.tileA;
+
+                            const newVal = sourceTile.value;
+                            const oldVal = hintTile.value;
+
+                            const newGrid = finalGrid.map(row => row.map(t => {
+                                if (t.id === hintTile.id) return { ...t, value: newVal };
+                                if (t.id === sourceTile.id) return { ...t, value: oldVal };
+                                return t;
+                            }));
+
+                            // Update operator to match the pair we forced
+                            setTimeout(() => setHintState(prev => prev ? { ...prev, operator: pair.operator } : null), 0);
+                            return newGrid;
+                        }
+
+                        return finalGrid;
+                    });
+                }
+            }
+        };
+
+        // Start the animation chain
+        setTimeout(runCycle, timings[0]);
+        setSelectedTiles([]);
+    }, [hintState, target, config.ops, findValidPairs, applyTimePenalty]);
 
     return {
         grid, target, score, level, isLevelComplete,
@@ -522,6 +817,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         handleTileClick, shuffleBoard, config, feedbackMessage, stars,
         // Timer state (for survival mode)
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        // Power-up tools
+        useHint, useFiftyFifty, resetTargetNumber,
+        hintState, isShuffling, isResettingTarget, isGridHalved,
         // Easter Egg states
         squareState, primeState,
         // Analytics
