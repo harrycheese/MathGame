@@ -10,7 +10,8 @@ export const TargetCircle = ({ target, memeState }: TargetCircleProps) => {
         <div className="relative group flex justify-center">
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl opacity-20 animate-pulse group-hover:opacity-40 transition-opacity" />
 
-            <div className="relative w-32 h-32 bg-gray-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
+            {/* Removed backdrop-blur for Safari performance */}
+            <div className="relative w-32 h-32 bg-gray-900/95 rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
                 {!memeState && (
                     <span className="absolute top-6 left-0 right-0 text-center text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase z-10">
                         TARGET

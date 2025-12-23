@@ -12,10 +12,11 @@ export const GameBoard = ({ grid, onTileClick }: GameBoardProps) => {
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md mx-auto aspect-square p-4 bg-black/20 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl"
+            className="w-full max-w-md mx-auto aspect-square p-4 bg-black/40 rounded-3xl border border-white/10 shadow-2xl"
         >
             <div className="grid grid-cols-6 gap-3 h-full">
-                <AnimatePresence mode="popLayout">
+                {/* Changed from popLayout to sync - popLayout causes expensive layout recalcs on Safari */}
+                <AnimatePresence mode="sync">
                     {grid.map((row) => (
                         row.map((tile) => (
                             <Tile

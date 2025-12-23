@@ -40,8 +40,8 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                     />
                 </div>
 
-                {/* Right Group: Status Pill */}
-                <div className="flex items-center gap-4 px-5 py-2 bg-gray-900/80 backdrop-blur-md rounded-full border border-white/10 shadow-xl">
+                {/* Right Group: Status Pill - removed backdrop-blur for Safari */}
+                <div className="flex items-center gap-4 px-5 py-2 bg-gray-900/95 rounded-full border border-white/10 shadow-xl">
                     {level !== undefined && (
                         <>
                             <div className="flex flex-col items-center">
@@ -70,7 +70,8 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                 <div className="relative group flex justify-center py-2 mb-2">
                     <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl opacity-20 animate-pulse group-hover:opacity-40 transition-opacity" />
 
-                    <div className="relative flex flex-col items-center justify-center w-32 h-32 bg-gray-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
+                    {/* Removed backdrop-blur for Safari performance */}
+                    <div className="relative flex flex-col items-center justify-center w-32 h-32 bg-gray-900/95 rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
                         {!memeState && (
                             <span className="text-[10px] font-bold text-gray-400 mb-1 tracking-[0.2em] uppercase z-10">TARGET</span>
                         )}

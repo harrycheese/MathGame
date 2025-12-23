@@ -84,9 +84,9 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                 style={{ backgroundColor: colors.glow }}
             />
 
-            {/* Timer Circle */}
+            {/* Timer Circle - removed backdrop-blur for Safari performance */}
             <div
-                className="relative w-32 h-32 bg-gray-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden"
+                className="relative w-32 h-32 bg-gray-900/95 rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden"
             >
                 {/* SVG Ring */}
                 <svg

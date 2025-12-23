@@ -18,16 +18,17 @@ export const Tile = ({ tile, onClick }: TileProps) => {
     const baseClasses = "relative flex items-center justify-center text-4xl font-bold rounded-2xl cursor-pointer select-none transition-colors duration-300";
 
     // Styles for different states using Glassmorphism
+    // Removed backdrop-blur for Safari/WebKit performance - using solid semi-transparent colors instead
     const stateClasses = clsx({
-        'bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-lg hover:bg-white/20': status === 'idle',
-        'bg-game-primary/80 backdrop-blur-md border-game-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105': isSelected,
-        'bg-game-success/80 backdrop-blur-md border-game-success text-white shadow-[0_0_20px_rgba(16,185,129,0.6)]': isMatched,
-        'bg-game-accent/80 backdrop-blur-md border-game-accent text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]': isWrong,
+        'bg-slate-800/90 border border-white/20 text-white shadow-lg hover:bg-slate-700/90': status === 'idle',
+        'bg-game-primary/90 border-game-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105': isSelected,
+        'bg-game-success/90 border-game-success text-white shadow-[0_0_20px_rgba(16,185,129,0.6)]': isMatched,
+        'bg-game-accent/90 border-game-accent text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]': isWrong,
     });
 
     return (
         <motion.div
-            layout
+            // Removed 'layout' prop - it causes expensive recalculations on Safari
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0 }}
@@ -38,6 +39,7 @@ export const Tile = ({ tile, onClick }: TileProps) => {
                 gridColumn: col + 1,
                 gridRow: row + 1,
                 zIndex: isSelected || isWrong ? 10 : 1,
+                willChange: 'transform, opacity', // GPU acceleration hint
             }}
         >
             <motion.div
