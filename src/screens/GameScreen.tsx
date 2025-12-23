@@ -331,6 +331,7 @@ export const GameScreen = () => {
                         isGridHalved={isGridHalved}
                         isShuffling={isShuffling}
                         isResettingTarget={isResettingTarget}
+                        isSurvivalMode={mode === 'survival'}
                     />
                 </div>
             </div>
