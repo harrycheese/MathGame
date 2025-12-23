@@ -1,52 +1,140 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface TargetCircleProps {
     target: number;
     memeState?: boolean;
+    isResettingTarget?: boolean;
 }
 
-export const TargetCircle = ({ target, memeState }: TargetCircleProps) => {
+export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCircleProps) => {
     return (
         <div className="relative group flex justify-center">
-            <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl opacity-20 animate-pulse group-hover:opacity-40 transition-opacity" />
+            {/* Glow effect - intensifies during spin */}
+            <motion.div
+                className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl"
+                animate={{
+                    opacity: isResettingTarget ? [0.3, 0.6, 0.3] : 0.2,
+                    scale: isResettingTarget ? [1, 1.1, 1] : 1,
+                }}
+                transition={{
+                    duration: 0.3,
+                    repeat: isResettingTarget ? Infinity : 0,
+                }}
+            />
 
-            {/* Removed backdrop-blur for Safari performance */}
-            <div className="relative w-32 h-32 bg-gray-900/95 rounded-full border border-white/10 shadow-2xl ring-1 ring-white/10 overflow-hidden">
-                {!memeState && (
-                    <span className="absolute top-6 left-0 right-0 text-center text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase z-10">
-                        TARGET
-                    </span>
-                )}
+            {/* Container for the wheel structure */}
+            <div className="relative w-32 h-32 rounded-full overflow-hidden">
 
-                <div className="absolute inset-0 flex items-center justify-center pt-2">
-                    {memeState ? (
-                        <motion.div
-                            initial={{ scale: 0.8, rotate: -5 }}
-                            animate={{
-                                scale: [1, 1.1, 1],
-                                rotate: [-5, 5, -5],
-                                y: [0, -5, 5, 0]
-                            }}
-                            transition={{ duration: 0.5, repeat: Infinity }}
-                            className="text-2xl font-black text-yellow-400 tracking-tighter text-center leading-tight"
-                            style={{ textShadow: '0 0 20px rgba(250, 204, 21, 0.5)' }}
+                {/* ROTATING BACKGROUND LAYER */}
+                <motion.div
+                    className="absolute inset-0 bg-gray-900/95 rounded-full border-2 shadow-2xl ring-1 ring-white/10"
+                    style={{
+                        borderColor: isResettingTarget ? '#f59e0b' : 'rgba(255,255,255,0.1)',
+                        boxShadow: isResettingTarget
+                            ? '0 0 30px rgba(245, 158, 11, 0.5), inset 0 0 20px rgba(245, 158, 11, 0.2)'
+                            : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    }}
+                    animate={{
+                        rotate: isResettingTarget ? [0, 360, 720, 1080, 1440] : 0,
+                    }}
+                    transition={{
+                        duration: 1.5,
+                        ease: [0.25, 0.1, 0.1, 1], // Fast start, slow finish
+                        times: [0, 0.3, 0.5, 0.7, 1],
+                    }}
+                >
+                    {/* Spinning lines decoration - only visible during spin */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: isResettingTarget ? 1 : 0 }}
+                    >
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-50" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center rotate-45">
+                            <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-50" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center rotate-90">
+                            <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-50" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center rotate-[135deg]">
+                            <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-50" />
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* STATIONARY FOREGROUND LAYER */}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
+
+                    {/* TARGET label - Fades out during reset */}
+                    {!memeState && (
+                        <motion.span
+                            className="absolute top-6 left-0 right-0 text-center text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase"
+                            animate={{ opacity: isResettingTarget ? 0 : 1 }}
                         >
-                            Siiiix...
-                            <br />
-                            Seveennn!
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key={target}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="text-6xl font-black italic text-white tracking-tight leading-none"
-                            style={{ textShadow: '0 0 30px rgba(59, 130, 246, 0.5)' }}
-                        >
-                            {target}
-                        </motion.div>
+                            TARGET
+                        </motion.span>
                     )}
+
+                    {/* Number / Content Area */}
+                    <div className="flex items-center justify-center pt-2 w-full h-full">
+                        {memeState ? (
+                            <motion.div
+                                initial={{ scale: 0.8, rotate: -5 }}
+                                animate={{
+                                    scale: [1, 1.1, 1],
+                                    rotate: [-5, 5, -5],
+                                    y: [0, -5, 5, 0]
+                                }}
+                                transition={{ duration: 0.5, repeat: Infinity }}
+                                className="text-2xl font-black text-yellow-400 tracking-tighter text-center leading-tight"
+                                style={{ textShadow: '0 0 20px rgba(250, 204, 21, 0.5)' }}
+                            >
+                                Siiiix...
+                                <br />
+                                Seveennn!
+                            </motion.div>
+                        ) : isResettingTarget ? (
+                            // Stationary pulsing "?"
+                            <motion.div
+                                key="question-mark"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{
+                                    opacity: 1,
+                                    scale: [1, 1.2, 1],
+                                }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{
+                                    scale: { duration: 0.4, repeat: Infinity }
+                                }}
+                                className="text-6xl font-black text-amber-400"
+                                style={{
+                                    textShadow: '0 0 30px rgba(245, 158, 11, 0.8)',
+                                }}
+                            >
+                                ?
+                            </motion.div>
+                        ) : (
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={target}
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{
+                                        type: 'spring',
+                                        stiffness: 400,
+                                        damping: 15,
+                                    }}
+                                    className="text-6xl font-black italic text-white tracking-tight leading-none"
+                                    style={{ textShadow: '0 0 30px rgba(59, 130, 246, 0.5)' }}
+                                >
+                                    {target}
+                                </motion.div>
+                            </AnimatePresence>
+                        )}
+                    </div>
                 </div>
+
             </div>
         </div>
     );
