@@ -5,10 +5,10 @@ import type { TileData } from '../types/game';
 interface GameBoardProps {
     grid: TileData[][];
     onTileClick: (row: number, col: number) => void;
-    hintedTileId?: string | null;
+    hintState?: { tileId: string; operator: string } | null;
 }
 
-export const GameBoard = ({ grid, onTileClick, hintedTileId }: GameBoardProps) => {
+export const GameBoard = ({ grid, onTileClick, hintState }: GameBoardProps) => {
     // Calculate grid rows dynamically (for 50/50 when grid shrinks)
     const gridRows = grid.length;
     const isHalved = gridRows < 6;
@@ -49,7 +49,8 @@ export const GameBoard = ({ grid, onTileClick, hintedTileId }: GameBoardProps) =
                                 <Tile
                                     tile={tile}
                                     onClick={onTileClick}
-                                    isHinted={hintedTileId === tile.id}
+                                    isHinted={hintState?.tileId === tile.id}
+                                    hintOperator={hintState?.tileId === tile.id ? hintState.operator : undefined}
                                 />
                             </motion.div>
                         ))

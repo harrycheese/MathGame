@@ -46,7 +46,8 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     const [countdown, setCountdown] = useState<number | null>(initialMode === 'survival' ? 3 : null);
 
     // Power-up Tool States
-    const [hintedTileId, setHintedTileId] = useState<string | null>(null);
+    // Power-up Tool States
+    const [hintState, setHintState] = useState<{ tileId: string; operator: string } | null>(null);
     const [isShuffling, setIsShuffling] = useState<boolean>(false);
     const [isResettingTarget, setIsResettingTarget] = useState<boolean>(false);
     const [isGridHalved, setIsGridHalved] = useState<boolean>(false);
@@ -204,6 +205,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     };
 
     const handleMatchSuccess = useCallback((tileA: TileData, tileB: TileData, operator: string) => {
+        setHintState(null); // Clear hint on successful match
         const now = Date.now();
         const timeSinceLast = lastMatchTimeRef.current > 0 ? now - lastMatchTimeRef.current : Infinity;
 
@@ -471,7 +473,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
             // Pick a random valid pair and highlight one tile
             const pair = validPairs[Math.floor(Math.random() * validPairs.length)];
             const tileToHint = Math.random() > 0.5 ? pair.tileA : pair.tileB;
-            setHintedTileId(tileToHint.id);
+            setHintState({ tileId: tileToHint.id, operator: pair.operator });
 
             // Time penalty in survival mode
             if (initialMode === 'survival') {
@@ -487,8 +489,19 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         const validPairs = findValidPairs(grid, target, config.ops);
         if (validPairs.length === 0) return;
 
-        // Protect one valid pair
-        const protectedPair = validPairs[0];
+        // Protect one valid pair (prefer hinted pair if active)
+        let protectedPair = validPairs[0];
+        // If a hint is active, ensure we DO NOT remove the hinted tile or its partner
+        if (hintState) {
+            const hintedPair = validPairs.find(p => p.tileA.id === hintState.tileId || p.tileB.id === hintState.tileId);
+            if (hintedPair) {
+                protectedPair = hintedPair;
+                // Also ensures operator matches if needed? 
+                // The hintOperator is stored in hintState.operator. 
+                // If the pair found has a different operator, maybe update hint? 
+                // But usually we just want to save the Tiles.
+            }
+        }
         const protectedIds = new Set([protectedPair.tileA.id, protectedPair.tileB.id]);
 
         // Get all tiles and identify which to keep
@@ -528,13 +541,13 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         setGrid(newGrid);
         setIsGridHalved(true);
         setSelectedTiles([]);
-        setHintedTileId(null);
+        // setHintState(null); // Keep hint active
 
         // Time penalty in survival mode
         if (initialMode === 'survival') {
             setTimeRemaining(prev => Math.max(0, prev - 3));
         }
-    }, [grid, target, config.ops, findValidPairs, isGridHalved, initialMode]);
+    }, [grid, target, config.ops, findValidPairs, isGridHalved, initialMode, hintState]);
 
     // Track latest grid state for async operations (avoid stale closures)
     const gridRef = useRef(grid);
@@ -568,9 +581,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
                 let targetFound = false;
 
                 // Case: Hint is active - ensure target is reachable with hinted tile
-                if (hintedTileId) {
+                if (hintState) {
                     const flatTiles = currentGrid.flat().filter(t => t.value > 0);
-                    const hintTile = flatTiles.find(t => t.id === hintedTileId);
+                    const hintTile = flatTiles.find(t => t.id === hintState.tileId);
 
                     if (hintTile && flatTiles.length >= 2) {
                         try {
@@ -597,6 +610,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
                                         break;
                                 }
                                 targetFound = true;
+                                setHintState({ ...hintState, operator: op });
                             }
                         } catch (e) { console.error("Error generating hint target", e); }
                     }
@@ -615,7 +629,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
                 }
             }
         }, 80);
-    }, [config, generateTarget, initialMode, hintedTileId]);
+    }, [config, generateTarget, initialMode, hintState]);
 
     // SHUFFLE with smooth slot machine animation (progressive timing)
     const shuffleBoard = useCallback(() => {
@@ -663,32 +677,43 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
                 setIsShuffling(false);
 
                 // Final check: If hint is active, ensure the specific highlighted TILE has a valid match
-                if (hintedTileId && !isResettingTargetRef.current) {
+                // Final check: If hint is active, ensure the specific highlighted TILE has a valid match
+                if (hintState && !isResettingTargetRef.current) {
                     setGrid(finalGrid => {
-                        // Find the hinted tile in the new grid
                         const flat = finalGrid.flat();
-                        const hintTile = flat.find(t => t.id === hintedTileId);
-
+                        const hintTile = flat.find(t => t.id === hintState.tileId);
                         if (!hintTile) return finalGrid;
 
-                        // Check if it's currently part of a solution
                         const validPairsAfterShuffle = findValidPairs(finalGrid, target, config.ops);
-                        const isHintSolveable = validPairsAfterShuffle.some(p => p.tileA.id === hintTile.id || p.tileB.id === hintTile.id);
 
-                        if (!isHintSolveable && validPairsAfterShuffle.length > 0) {
-                            // Force it to be solvable: Swap HintTile value with one of the valid pair's tiles
+                        // Check if hint is solvable
+                        const solvingPair = validPairsAfterShuffle.find(p => p.tileA.id === hintTile.id || p.tileB.id === hintTile.id);
+
+                        if (solvingPair) {
+                            // It is solvable. Update operator if it changed (e.g. from + to -)
+                            if (solvingPair.operator !== hintState.operator) {
+                                setTimeout(() => setHintState(prev => prev ? { ...prev, operator: solvingPair.operator } : null), 0);
+                            }
+                            return finalGrid;
+                        }
+
+                        // Not solvable. Force swap with a valid pair.
+                        if (validPairsAfterShuffle.length > 0) {
                             const pair = validPairsAfterShuffle[0];
                             const sourceTile = pair.tileA;
 
-                            // Swap values
                             const newVal = sourceTile.value;
                             const oldVal = hintTile.value;
 
-                            return finalGrid.map(row => row.map(t => {
+                            const newGrid = finalGrid.map(row => row.map(t => {
                                 if (t.id === hintTile.id) return { ...t, value: newVal };
                                 if (t.id === sourceTile.id) return { ...t, value: oldVal };
                                 return t;
                             }));
+
+                            // Update operator to match the pair we forced
+                            setTimeout(() => setHintState(prev => prev ? { ...prev, operator: pair.operator } : null), 0);
+                            return newGrid;
                         }
 
                         return finalGrid;
@@ -700,7 +725,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         // Start the animation chain
         setTimeout(runCycle, timings[0]);
         setSelectedTiles([]);
-    }, [hintedTileId, target, config.ops, findValidPairs]);
+    }, [hintState, target, config.ops, findValidPairs]);
 
     return {
         grid, target, score, level, isLevelComplete,
@@ -710,7 +735,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
-        hintedTileId, isShuffling, isResettingTarget, isGridHalved,
+        hintState, isShuffling, isResettingTarget, isGridHalved,
         // Analytics
         sessionAnalytics: {
             operatorCounts,

@@ -7,9 +7,10 @@ interface TileProps {
     tile: TileData;
     onClick: (row: number, col: number) => void;
     isHinted?: boolean; // Power-up: golden glow hint
+    hintOperator?: string; // Power-up: displayed operator bubble
 }
 
-export const Tile = ({ tile, onClick, isHinted }: TileProps) => {
+export const Tile = ({ tile, onClick, isHinted, hintOperator }: TileProps) => {
     const { value, status, row, col } = tile;
 
     // Hidden tile (removed by 50/50) - render invisible placeholder
@@ -84,6 +85,18 @@ export const Tile = ({ tile, onClick, isHinted }: TileProps) => {
                         }}
                         transition={{ duration: 1.5, repeat: Infinity }}
                     />
+                )}
+
+                {/* Hint Operator Bubble */}
+                {isHinted && hintOperator && (
+                    <motion.div
+                        className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center shadow-lg z-20"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
+                        <span className="text-white font-black text-lg leading-none pt-0.5">{hintOperator}</span>
+                    </motion.div>
                 )}
             </motion.div>
         </motion.div>

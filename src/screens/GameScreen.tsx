@@ -41,7 +41,7 @@ export const GameScreen = () => {
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
-        hintedTileId, isShuffling, isResettingTarget, isGridHalved,
+        hintState, isShuffling, isResettingTarget, isGridHalved,
         sessionAnalytics,
         startTime
     } = useGameEngine(mode, initialLevel);
@@ -314,7 +314,7 @@ export const GameScreen = () => {
                     <GameBoard
                         grid={grid}
                         onTileClick={handleTileClick}
-                        hintedTileId={hintedTileId}
+                        hintState={hintState}
                     />
                 </div>
 
