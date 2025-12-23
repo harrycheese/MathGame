@@ -42,6 +42,7 @@ export const GameScreen = () => {
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
         hintState, isShuffling, isResettingTarget, isGridHalved,
+        squareState, primeState, // Easter egg states
         sessionAnalytics,
         startTime
     } = useGameEngine(mode, initialLevel);
@@ -207,6 +208,8 @@ export const GameScreen = () => {
                     operatorCounts={operatorCounts}
                     lastOperator={lastOperator}
                     memeState={memeState}
+                    squareState={squareState}
+                    primeState={primeState}
                     allowedOps={config.ops}
                     requiredOps={mode === 'campaign' ? config.requiredOps : undefined}
                     showTarget={mode !== 'survival'} // Hide target in HUD for survival (shown separately)
@@ -217,7 +220,7 @@ export const GameScreen = () => {
                 {/* SURVIVAL MODE: Target + Timer Side by Side */}
                 {mode === 'survival' && (
                     <div className="flex items-center justify-center gap-6 py-2 mb-2">
-                        <TargetCircle target={target} memeState={memeState} isResettingTarget={isResettingTarget} />
+                        <TargetCircle target={target} memeState={memeState} squareState={squareState} primeState={primeState} isResettingTarget={isResettingTarget} />
                         <TimerCircle
                             timeRemaining={timeRemaining}
                             maxTime={INITIAL_TIME}

@@ -9,6 +9,8 @@ interface GameHUDProps {
     operatorCounts: Record<string, number>;
     lastOperator?: string | null;
     memeState?: boolean;
+    squareState?: string | null; // Square easter egg message
+    primeState?: string | null; // Prime easter egg message
     allowedOps: string[];
     requiredOps?: Record<string, number>;
     showTarget?: boolean; // false = hide target (for survival mode side-by-side)
@@ -16,7 +18,7 @@ interface GameHUDProps {
     onExit?: () => void;
 }
 
-export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, memeState, allowedOps, requiredOps, showTarget = true, isResettingTarget, onExit }: GameHUDProps) => {
+export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, memeState, squareState, primeState, allowedOps, requiredOps, showTarget = true, isResettingTarget, onExit }: GameHUDProps) => {
     return (
         <div className="flex flex-col items-center w-full max-w-md mx-auto z-20 mb-2">
 
@@ -66,12 +68,14 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                 </div>
             </div>
 
-            {/* HERO ROW: The Target (Centered & Large) - Now using shared TargetCircle */}
+            {/* HERO ROW: The Target (Centered & Large) - Using shared TargetCircle */}
             {showTarget && (
                 <div className="py-2 mb-2">
                     <TargetCircle
                         target={target}
                         memeState={memeState}
+                        squareState={squareState}
+                        primeState={primeState}
                         isResettingTarget={isResettingTarget}
                     />
                 </div>

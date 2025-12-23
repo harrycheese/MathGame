@@ -6,6 +6,28 @@ import type { LevelConfig } from '../config/levelConfig';
 
 const GRID_SIZE = 6;
 
+// Easter Egg Messages (randomly selected)
+const SQUARE_MESSAGES = ['PERFECTLY SQUARED!', '🧊 SQUARE UP!', 'BOXY!'];
+const PRIME_MESSAGES = ['OPTIMUS PRIME!', '🤖 PRIME TIME!', 'AUTOBOTS, ROLL OUT!', 'PRIIIME!'];
+
+// Helper: Check if number is a perfect square
+const isPerfectSquare = (n: number): boolean => {
+    if (n < 0) return false;
+    const sqrt = Math.sqrt(n);
+    return sqrt === Math.floor(sqrt);
+};
+
+// Helper: Check if number is prime
+const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    if (n === 2) return true;
+    if (n % 2 === 0) return false;
+    for (let i = 3; i <= Math.sqrt(n); i += 2) {
+        if (n % i === 0) return false;
+    }
+    return true;
+};
+
 export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'survival', initialLevel: number = 1) => {
     const [level, _setLevel] = useState<number>(initialLevel);
     const [config, setConfig] = useState<LevelConfig>(getLevelConfig(initialLevel));
@@ -35,12 +57,18 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     const [totalComplexity, setTotalComplexity] = useState(0);
 
     const [memeState, setMemeState] = useState<boolean>(false);
+    // Easter Egg States
+    const [squareState, setSquareState] = useState<string | null>(null); // Message for square easter egg
+    const [primeState, setPrimeState] = useState<string | null>(null); // Message for prime easter egg
 
     // Timer State (for Survival mode)
     const INITIAL_TIME = 60; // seconds
     const [timeRemaining, setTimeRemaining] = useState<number>(INITIAL_TIME);
     const [isGameOver, setIsGameOver] = useState<boolean>(false);
     const [timeBonus, setTimeBonus] = useState<number | null>(null);
+
+    // Timer pause during easter egg animations
+    const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
 
     // Pre-game countdown (3, 2, 1, GO!)
     const [countdown, setCountdown] = useState<number | null>(initialMode === 'survival' ? 3 : null);
@@ -116,9 +144,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     }, [initialMode, countdown]);
 
     // Timer countdown effect (only for survival mode, after countdown finishes)
-    // PAUSES during tool animations (Reset Target, Shuffle)
+    // PAUSES during tool animations (Reset Target, Shuffle) AND easter egg animations
     useEffect(() => {
-        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling) return;
+        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling || isTimerPaused) return;
 
         const interval = setInterval(() => {
             setTimeRemaining(prev => {
@@ -131,7 +159,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling]);
+    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling, isTimerPaused]);
 
 
     // SMART TARGET GENERATION (Op-First)
@@ -212,11 +240,15 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
 
         lastMatchTimeRef.current = now;
 
-        // EASTER EGG Check (Meme)
+        // EASTER EGG Check (Meme - Six Seven)
         const isMeme = (tileA.value === 6 && tileB.value === 7) || (tileA.value === 7 && tileB.value === 6);
         if (isMeme) {
             setMemeState(true);
-            setTimeout(() => setMemeState(false), 2000);
+            setIsTimerPaused(true); // Pause timer during animation
+            setTimeout(() => {
+                setMemeState(false);
+                setIsTimerPaused(false); // Resume timer
+            }, 2000);
 
             // EXPLOSION EFFECT
             confetti({
@@ -228,6 +260,46 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
                 ticks: 300,
                 gravity: 1.2,
                 scalar: 1.2
+            });
+        }
+
+        // EASTER EGG: Perfect Square (e.g., 2×2=4, 3×3=9)
+        const isSquareMatch = operator === '×' && tileA.value === tileB.value && isPerfectSquare(target);
+        if (isSquareMatch && !isMeme) {
+            const msg = SQUARE_MESSAGES[Math.floor(Math.random() * SQUARE_MESSAGES.length)];
+            setSquareState(msg);
+            setIsTimerPaused(true); // Pause timer during animation
+            setTimeout(() => {
+                setSquareState(null);
+                setIsTimerPaused(false); // Resume timer
+            }, 2000);
+            // Square confetti effect
+            confetti({
+                particleCount: 80,
+                spread: 60,
+                origin: { x: 0.5, y: 0.4 },
+                colors: ['#60A5FA', '#818CF8', '#A78BFA'], // Blue/purple
+                shapes: ['square'],
+            });
+        }
+
+        // EASTER EGG: Prime Number Target (only for × and ÷ - relates to prime definition)
+        const isPrimeTarget = isPrime(target);
+        const isPrimeOperator = operator === '×' || operator === '÷';
+        if (isPrimeTarget && isPrimeOperator && !isMeme && !isSquareMatch) {
+            const msg = PRIME_MESSAGES[Math.floor(Math.random() * PRIME_MESSAGES.length)];
+            setPrimeState(msg);
+            setIsTimerPaused(true); // Pause timer during animation
+            setTimeout(() => {
+                setPrimeState(null);
+                setIsTimerPaused(false); // Resume timer
+            }, 2000);
+            // Robot/metallic confetti
+            confetti({
+                particleCount: 60,
+                spread: 50,
+                origin: { x: 0.5, y: 0.4 },
+                colors: ['#EF4444', '#3B82F6', '#9CA3AF'], // Red, Blue, Silver (Transformers)
             });
         }
 
@@ -403,6 +475,13 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         const valA = tileA.value;
         const valB = tileB.value;
         const ops = config.ops;
+
+        // PRIORITY: If both tiles equal and target is perfect square, prefer × for easter egg
+        const shouldPrioritizeMultiply = valA === valB && isPerfectSquare(target) && ops.includes('×') && valA * valB === target;
+        if (shouldPrioritizeMultiply) {
+            handleMatchSuccess(tileA, tileB, '×');
+            return;
+        }
 
         if (ops.includes('+') && valA + valB === target) { handleMatchSuccess(tileA, tileB, '+'); return; }
         if (ops.includes('-') && Math.abs(valA - valB) === target) { handleMatchSuccess(tileA, tileB, '-'); return; }
@@ -741,6 +820,8 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
         hintState, isShuffling, isResettingTarget, isGridHalved,
+        // Easter Egg states
+        squareState, primeState,
         // Analytics
         sessionAnalytics: {
             operatorCounts,

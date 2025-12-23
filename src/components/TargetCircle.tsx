@@ -3,18 +3,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface TargetCircleProps {
     target: number;
     memeState?: boolean;
-    isResettingTarget?: boolean;
+    squareState?: string | null; // Square easter egg message
+    primeState?: string | null; // Prime easter egg message
+    isResettingTarget?: boolean; // Power-up: roulette animation
 }
 
-export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCircleProps) => {
+export const TargetCircle = ({ target, memeState, squareState, primeState, isResettingTarget }: TargetCircleProps) => {
+    // Determine which easter egg state is active
+    const isSquareActive = !!squareState;
+    const isPrimeActive = !!primeState;
+    const hasEasterEgg = memeState || isSquareActive || isPrimeActive;
+
     return (
         <div className="relative group flex justify-center">
-            {/* Glow effect - intensifies during spin */}
+            {/* Glow effect - intensifies during spin OR changes color for easter eggs */}
             <motion.div
-                className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-xl"
+                className="absolute -inset-4 rounded-full blur-xl"
                 animate={{
                     opacity: isResettingTarget ? [0.3, 0.6, 0.3] : 0.2,
                     scale: isResettingTarget ? [1, 1.1, 1] : 1,
+                    background: isSquareActive
+                        ? 'linear-gradient(to right, #60A5FA, #818CF8, #A78BFA)' // Blue/purple for squares
+                        : isPrimeActive
+                            ? 'linear-gradient(to right, #EF4444, #3B82F6, #9CA3AF)' // Red/blue/silver for Transformers
+                            : 'linear-gradient(to right, #3B82F6, #8B5CF6, #EC4899)' // Default
                 }}
                 transition={{
                     duration: 0.3,
@@ -25,7 +37,7 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
             {/* Container for the wheel structure */}
             <div className="relative w-32 h-32 rounded-full overflow-hidden">
 
-                {/* ROTATING BACKGROUND LAYER */}
+                {/* ROTATING BACKGROUND LAYER (for roulette animation) */}
                 <motion.div
                     className="absolute inset-0 bg-gray-900/95 rounded-full border-2 shadow-2xl ring-1 ring-white/10"
                     style={{
@@ -36,6 +48,7 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
                     }}
                     animate={{
                         rotate: isResettingTarget ? [0, 360, 720, 1080, 1440] : 0,
+                        borderRadius: isSquareActive ? '20%' : '50%',
                     }}
                     transition={{
                         duration: 1.5,
@@ -66,11 +79,11 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
                 {/* STATIONARY FOREGROUND LAYER */}
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
 
-                    {/* TARGET label - Fades out during reset */}
-                    {!memeState && (
+                    {/* TARGET label - Fades out during reset or easter eggs */}
+                    {!hasEasterEgg && !isResettingTarget && (
                         <motion.span
                             className="absolute top-6 left-0 right-0 text-center text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase"
-                            animate={{ opacity: isResettingTarget ? 0 : 1 }}
+                            animate={{ opacity: 1 }}
                         >
                             TARGET
                         </motion.span>
@@ -79,6 +92,7 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
                     {/* Number / Content Area */}
                     <div className="flex items-center justify-center pt-2 w-full h-full">
                         {memeState ? (
+                            // Six-Seven Easter Egg
                             <motion.div
                                 initial={{ scale: 0.8, rotate: -5 }}
                                 animate={{
@@ -94,8 +108,37 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
                                 <br />
                                 Seveennn!
                             </motion.div>
+                        ) : isSquareActive ? (
+                            // Square Easter Egg
+                            <motion.div
+                                initial={{ scale: 0.5, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="text-xl font-black text-blue-400 tracking-tighter text-center leading-tight px-2"
+                                style={{ textShadow: '0 0 20px rgba(96, 165, 250, 0.5)' }}
+                            >
+                                {squareState}
+                            </motion.div>
+                        ) : isPrimeActive ? (
+                            // Prime Easter Egg (Optimus Prime / Transformers style)
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{
+                                    scale: [1, 1.05, 1],
+                                    opacity: 1,
+                                }}
+                                transition={{ duration: 0.3, repeat: 3 }}
+                                className="text-lg font-black tracking-tighter text-center leading-tight px-2"
+                                style={{
+                                    background: 'linear-gradient(135deg, #EF4444, #3B82F6)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    textShadow: '0 0 20px rgba(239, 68, 68, 0.3)',
+                                }}
+                            >
+                                {primeState}
+                            </motion.div>
                         ) : isResettingTarget ? (
-                            // Stationary pulsing "?"
+                            // Roulette animation - pulsing "?"
                             <motion.div
                                 key="question-mark"
                                 initial={{ scale: 0, opacity: 0 }}
@@ -115,6 +158,7 @@ export const TargetCircle = ({ target, memeState, isResettingTarget }: TargetCir
                                 ?
                             </motion.div>
                         ) : (
+                            // Normal target display
                             <AnimatePresence mode="wait">
                                 <motion.div
                                     key={target}
