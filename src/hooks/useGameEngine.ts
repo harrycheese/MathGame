@@ -116,8 +116,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     }, [initialMode, countdown]);
 
     // Timer countdown effect (only for survival mode, after countdown finishes)
+    // PAUSES during tool animations (Reset Target, Shuffle)
     useEffect(() => {
-        if (initialMode !== 'survival' || isGameOver || countdown !== null) return;
+        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling) return;
 
         const interval = setInterval(() => {
             setTimeRemaining(prev => {
@@ -130,7 +131,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [initialMode, isGameOver, countdown]);
+    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling]);
 
 
     // SMART TARGET GENERATION (Op-First)
@@ -466,6 +467,15 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         return pairs;
     }, []);
 
+    // Helper: Apply time penalty with visual feedback
+    const applyTimePenalty = useCallback((seconds: number) => {
+        if (initialMode === 'survival') {
+            setTimeRemaining(prev => Math.max(0, prev - seconds));
+            setTimeBonus(-seconds); // Trigger red negative bonus
+            setTimeout(() => setTimeBonus(null), 1000);
+        }
+    }, [initialMode]);
+
     // POWER-UP: Hint - Highlights one valid tile
     const useHint = useCallback(() => {
         const validPairs = findValidPairs(grid, target, config.ops);
@@ -476,11 +486,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
             setHintState({ tileId: tileToHint.id, operator: pair.operator });
 
             // Time penalty in survival mode
-            if (initialMode === 'survival') {
-                setTimeRemaining(prev => Math.max(0, prev - 3));
-            }
+            applyTimePenalty(3);
         }
-    }, [grid, target, config.ops, findValidPairs, initialMode]);
+    }, [grid, target, config.ops, findValidPairs, initialMode, applyTimePenalty]);
 
     // POWER-UP: 50/50 - Removes half the tiles with gravity effect
     const useFiftyFifty = useCallback(() => {
@@ -544,10 +552,8 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         // setHintState(null); // Keep hint active
 
         // Time penalty in survival mode
-        if (initialMode === 'survival') {
-            setTimeRemaining(prev => Math.max(0, prev - 3));
-        }
-    }, [grid, target, config.ops, findValidPairs, isGridHalved, initialMode, hintState]);
+        applyTimePenalty(3);
+    }, [grid, target, config.ops, findValidPairs, isGridHalved, initialMode, hintState, applyTimePenalty]);
 
     // Track latest grid state for async operations (avoid stale closures)
     const gridRef = useRef(grid);
@@ -563,6 +569,8 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     // POWER-UP: Reset Target - Generates new target with animation
     const resetTargetNumber = useCallback(() => {
         setIsResettingTarget(true);
+        applyTimePenalty(3);
+
 
         // Roulette animation - cycle through numbers
         let cycles = 0;
@@ -622,11 +630,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
 
                 setTarget(finalTarget);
                 setIsResettingTarget(false);
-
-                // Time penalty in survival mode
-                if (initialMode === 'survival') {
-                    setTimeRemaining(prev => Math.max(0, prev - 3));
-                }
+                // Penalty already applied at start via applyTimePenalty
             }
         }, 80);
     }, [config, generateTarget, initialMode, hintState]);
@@ -634,6 +638,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     // SHUFFLE with smooth slot machine animation (progressive timing)
     const shuffleBoard = useCallback(() => {
         setIsShuffling(true);
+        applyTimePenalty(3);
         // setHintedTileId(null); // Keep hint active
 
         // Progressive timing: starts fast, slows down (slot machine effect)
@@ -725,7 +730,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         // Start the animation chain
         setTimeout(runCycle, timings[0]);
         setSelectedTiles([]);
-    }, [hintState, target, config.ops, findValidPairs]);
+    }, [hintState, target, config.ops, findValidPairs, applyTimePenalty]);
 
     return {
         grid, target, score, level, isLevelComplete,

@@ -48,8 +48,9 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
     };
 
     // Show bonus animation inside circle
+    // Show bonus animation inside circle (handles both positive and negative)
     useEffect(() => {
-        if (timeBonus && timeBonus > 0) {
+        if (timeBonus && timeBonus !== 0) {
             // Clear any existing timeout if we get a NEW bonus fast
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
@@ -163,14 +164,18 @@ export const TimerCircle = ({ timeRemaining, maxTime, timeBonus, countdown }: Ti
                                     stiffness: 400,
                                     damping: 15
                                 }}
-                                className={`absolute inset-0 flex items-center justify-center pt-2 text-4xl font-black ${showBonus >= 5 ? 'text-yellow-400' : 'text-green-400'}`}
+                                className={`absolute inset-0 flex items-center justify-center pt-2 text-4xl font-black ${showBonus < 0 ? 'text-red-400' :
+                                        showBonus >= 5 ? 'text-yellow-400' : 'text-green-400'
+                                    }`}
                                 style={{
-                                    textShadow: showBonus >= 5
-                                        ? '0 0 30px rgba(250, 204, 21, 0.8)'
-                                        : '0 0 30px rgba(34, 197, 94, 0.8)'
+                                    textShadow: showBonus < 0
+                                        ? '0 0 30px rgba(239, 68, 68, 0.8)'
+                                        : showBonus >= 5
+                                            ? '0 0 30px rgba(250, 204, 21, 0.8)'
+                                            : '0 0 30px rgba(34, 197, 94, 0.8)'
                                 }}
                             >
-                                +{showBonus}s
+                                {showBonus > 0 ? '+' : ''}{showBonus}s
                             </motion.div>
                         ) : (
                             <motion.div
