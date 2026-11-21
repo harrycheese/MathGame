@@ -57,14 +57,14 @@ export default defineConfig({
         screenshots: [
           {
             src: 'screenshot-survival.png',
-            sizes: '1080x1920',
+            sizes: '475x879',
             type: 'image/png',
             form_factor: 'narrow',
             label: 'Speed Math Survival Mode'
           },
           {
             src: 'screenshot-profile.png',
-            sizes: '1080x1920',
+            sizes: '476x894',
             type: 'image/png',
             form_factor: 'narrow',
             label: 'Career Analytics & Stats'
