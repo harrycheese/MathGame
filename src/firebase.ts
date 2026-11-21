@@ -15,7 +15,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-import { doc, setDoc, getDoc, updateDoc, increment, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, increment, initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { type LevelResult, type UserProgress } from './types/game';
 
 // Initialize Firebase
@@ -34,18 +34,22 @@ try {
 export const auth = authInstance;
 export const analytics = getAnalytics(app);
 
-// Modern Persistence Setup
+// Modern Persistence Setup with robust error fallback
 let dbInstance;
 try {
     dbInstance = initializeFirestore(app, {
         localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager()
         }),
-        experimentalForceLongPolling: true, // Force robust connection
+        experimentalForceLongPolling: true,
     });
-} catch (e) {
-    // Persistence init failed - rethrow to surface the issue
-    throw e;
+} catch {
+    // If persistent cache fails (e.g. IndexedDB locked after force kill), fallback to standard getFirestore
+    try {
+        dbInstance = getFirestore(app);
+    } catch {
+        dbInstance = null as any;
+    }
 }
 export const db = dbInstance;
 

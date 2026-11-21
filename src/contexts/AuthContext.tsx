@@ -20,15 +20,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
-
-            // Ensure user document exists in Firestore
-            if (user) {
-                await ensureUserDocument(user.uid);
-            }
-
             setLoading(false);
+
+            // Ensure user document in background without blocking initial render/loading
+            if (user) {
+                ensureUserDocument(user.uid).catch(() => {});
+            }
         });
 
         return unsubscribe;
