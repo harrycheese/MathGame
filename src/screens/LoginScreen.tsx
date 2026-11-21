@@ -32,8 +32,9 @@ export const LoginScreen = () => {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
             navigate(postAuthRoute);
-        } catch {
-            setError('Google Sign In failed.');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Google Sign In failed.';
+            setError(message);
         }
     };
 
