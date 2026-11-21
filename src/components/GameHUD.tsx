@@ -28,7 +28,7 @@ export const GameHUD = ({ target, score, level, operatorCounts, lastOperator, me
                 {/* Left Group: Exit & Operators */}
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={onExit || (() => window.location.href = '/modes')}
+                        onClick={onExit || (() => window.location.href = '/')}
                         className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

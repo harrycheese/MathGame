@@ -184,14 +184,13 @@ export const GameScreen = () => {
         }
     }, [isGameOver, mode, score, sessionAnalytics, startTime]);
 
-    // Handle manual exit (Back button)
     const handleExit = () => {
         // Validation: If not finished, save stats on exit
         if (!isLevelComplete && !isGameOver && !savedSessionRef.current) {
             savedSessionRef.current = true;
             saveProgress('abandoned'); // Explicitly mark as abandoned
         }
-        navigate('/modes');
+        navigate('/');
     };
 
     return (
@@ -406,7 +405,7 @@ export const GameScreen = () => {
                                 </div>
 
                                 <button
-                                    onClick={() => navigate('/campaign')}
+                                    onClick={() => navigate('/')}
                                     className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black tracking-widest shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group"
                                 >
                                     <span>CONTINUE</span>
@@ -472,7 +471,7 @@ export const GameScreen = () => {
 
                                 <div className="flex gap-3 w-full">
                                     <button
-                                        onClick={() => navigate('/modes')}
+                                        onClick={() => navigate('/')}
                                         className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold tracking-wider transition-all"
                                     >
                                         EXIT
