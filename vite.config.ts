@@ -23,9 +23,12 @@ export default defineConfig({
         description: 'Speed Math Survival Challenge',
         start_url: '/',
         scope: '/',
+        dir: 'ltr',
+        categories: ['games', 'puzzle', 'education'],
         theme_color: '#030712', // match bg-gray-950
         background_color: '#030712',
         display: 'standalone',
+        display_override: ['standalone', 'window-controls-overlay'],
         orientation: 'portrait',
         icons: [
           {
@@ -49,6 +52,22 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
+          }
+        ],
+        screenshots: [
+          {
+            src: 'screenshot-survival.png',
+            sizes: '1080x1920',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Speed Math Survival Mode'
+          },
+          {
+            src: 'screenshot-profile.png',
+            sizes: '1080x1920',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Career Analytics & Stats'
           }
         ]
       },
