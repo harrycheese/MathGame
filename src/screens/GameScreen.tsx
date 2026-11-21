@@ -251,15 +251,28 @@ export const GameScreen = () => {
                                 className="px-4 py-1.5 bg-blue-500/20 text-blue-200 border border-blue-500/30 rounded-full text-xs font-bold tracking-wide backdrop-blur text-center"
                             >
                                 {(() => {
-                                    const quests = config.requiredOps || {};
+                                    // Handle corner case: Target is 0
+                                    if (target === 0) {
+                                        return "Find identical numbers and subtract them: A − B = 0";
+                                    }
 
+                                    // Survival & Zen Modes: All 4 operations are active
+                                    if (mode === 'survival' || mode === 'zen') {
+                                        return `Match ${target} using +, −, ×, or ÷ with any two tiles!`;
+                                    }
+
+                                    // Campaign Mode: Level quests
+                                    const quests = config.requiredOps || {};
                                     if (quests['-']) return `Find pairs that equal ${target}. Try Subtraction!`;
                                     if (quests['×']) return `Find pairs that equal ${target}. Try Multiplication!`;
                                     if (quests['÷']) return `Find pairs that equal ${target}. Try Division!`;
 
-                                    if (config.level <= 2) return `Find pairs that add up to ${target}`;
+                                    // Single-op early levels
+                                    if (config.ops.length === 1 && config.ops[0] === '+') {
+                                        return `Find two tiles that add up to ${target}`;
+                                    }
 
-                                    return `Find pairs that equal ${target}`;
+                                    return `Find two tiles that equal ${target} using +, −, ×, or ÷`;
                                 })()}
                             </motion.div>
                         ) : (
