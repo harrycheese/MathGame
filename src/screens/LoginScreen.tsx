@@ -19,10 +19,12 @@ export const LoginScreen = () => {
         setError('');
         setLoading(true);
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth, email.trim(), password);
             navigate(postAuthRoute);
-        } catch {
-            setError('Failed to sign in. Please check your credentials.');
+        } catch (err: unknown) {
+            console.error('Sign in error:', err);
+            const message = err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.';
+            setError(message);
         }
         setLoading(false);
     };
