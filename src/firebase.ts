@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 // Your web app's Firebase configuration
@@ -20,7 +20,18 @@ import { type LevelResult, type UserProgress } from './types/game';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// Explicitly configure Auth persistence to IndexedDB with localStorage fallback
+// to prevent Android background / process kill from losing auth tokens
+let authInstance;
+try {
+    authInstance = initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+    });
+} catch {
+    authInstance = getAuth(app);
+}
+export const auth = authInstance;
 export const analytics = getAnalytics(app);
 
 // Modern Persistence Setup
