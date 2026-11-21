@@ -7,6 +7,8 @@ import { auth } from '../firebase';
 
 export const RegisterScreen = () => {
     const navigate = useNavigate();
+    const isStandalone = import.meta.env.VITE_APP_MODE === 'standalone';
+    const postAuthRoute = isStandalone ? '/' : '/modes';
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,9 +25,9 @@ export const RegisterScreen = () => {
             await updateProfile(userCredential.user, {
                 displayName: name
             });
-            navigate('/modes');
-        } catch (err: any) {
-            setError(err.message || 'Failed to create account.');
+            navigate(postAuthRoute);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to create account.');
         }
         setLoading(false);
     };
@@ -34,7 +36,7 @@ export const RegisterScreen = () => {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/modes');
+            navigate(postAuthRoute);
         } catch {
             setError('Google Sign Up failed.');
         }

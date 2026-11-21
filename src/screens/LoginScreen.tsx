@@ -7,6 +7,8 @@ import { auth } from '../firebase';
 
 export const LoginScreen = () => {
     const navigate = useNavigate();
+    const isStandalone = import.meta.env.VITE_APP_MODE === 'standalone';
+    const postAuthRoute = isStandalone ? '/' : '/modes';
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -18,7 +20,7 @@ export const LoginScreen = () => {
         setLoading(true);
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            navigate('/modes');
+            navigate(postAuthRoute);
         } catch {
             setError('Failed to sign in. Please check your credentials.');
         }
@@ -29,7 +31,7 @@ export const LoginScreen = () => {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/modes');
+            navigate(postAuthRoute);
         } catch {
             setError('Google Sign In failed.');
         }
