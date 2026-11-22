@@ -27,3 +27,4 @@ These rules apply to every developer and AI agent working in this repo.
 ## Branches
 
 - `feature/twa-app-launch` backs the Play Store release. Do not modify it while a store review is pending.
+

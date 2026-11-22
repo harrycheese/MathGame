@@ -52,6 +52,9 @@ export const GameScreen = () => {
     const [showHelp, setShowHelp] = useState(false);
     const [resumeCountdown, setResumeCountdown] = useState<number | null>(null);
 
+    // Disable all board and power-up interactions during countdown, pause, unpause countdown, or completion
+    const isInteractionsDisabled = (countdown !== null && countdown >= 0) || isGamePaused || resumeCountdown !== null || isGameOver || isLevelComplete;
+
     // Intercept Android Back Button (Hardware / Gesture)
     useEffect(() => {
         // Push a dummy history state to intercept the back action
@@ -342,8 +345,9 @@ export const GameScreen = () => {
                                 </span>
                                 {/* Coaching Tooltip Trigger */}
                                 <button
+                                    disabled={isInteractionsDisabled}
                                     onClick={() => { setShowHelp(true); setTimeout(() => setShowHelp(false), 3000); }}
-                                    className="w-4 h-4 rounded-full bg-white/10 text-[10px] text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors"
+                                    className="w-4 h-4 rounded-full bg-white/10 text-[10px] text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     i
                                 </button>
@@ -380,7 +384,7 @@ export const GameScreen = () => {
                 )}
 
                 {/* 2. Work (Grid) */}
-                <div className={`flex-1 flex items-center justify-center w-full max-w-md ${countdown !== null && countdown >= 0 ? 'pointer-events-none opacity-70' : ''}`}>
+                <div className={`flex-1 flex items-center justify-center w-full max-w-md ${isInteractionsDisabled ? 'pointer-events-none opacity-70' : ''}`}>
                     <GameBoard
                         grid={grid}
                         onTileClick={handleTileClick}
@@ -389,7 +393,7 @@ export const GameScreen = () => {
                 </div>
 
                 {/* 3. Utilities (Controls) */}
-                <div className="w-full max-w-md pb-8">
+                <div className={`w-full max-w-md pb-8 ${isInteractionsDisabled ? 'pointer-events-none opacity-50' : ''}`}>
                     <GameControls
                         onShuffle={shuffleBoard}
                         onHint={useHint}
@@ -399,6 +403,7 @@ export const GameScreen = () => {
                         isShuffling={isShuffling}
                         isResettingTarget={isResettingTarget}
                         isSurvivalMode={mode === 'survival'}
+                        disabled={isInteractionsDisabled}
                     />
                 </div>
             </div>

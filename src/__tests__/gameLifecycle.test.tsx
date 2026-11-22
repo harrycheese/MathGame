@@ -89,4 +89,27 @@ describe('Game lifecycle (pause & hardware events)', () => {
         tick(2000); // two seconds of live play
         expect(screen.getByText('0:53')).toBeInTheDocument();
     });
+
+    it('powerups and controls are disabled during the initial 3-2-1 countdown', () => {
+        renderGame();
+        // Right after render, countdown is active (3)
+        const hintBtn = screen.getByTitle('Hint (-3s)');
+        const remixBtn = screen.getByTitle('Remix (-3s)');
+        const fiftyBtn = screen.getByTitle('50/50 (-3s)');
+        const rerollBtn = screen.getByTitle('Reroll (-3s)');
+
+        expect(hintBtn).toBeDisabled();
+        expect(remixBtn).toBeDisabled();
+        expect(fiftyBtn).toBeDisabled();
+        expect(rerollBtn).toBeDisabled();
+
+        // Advance 3 seconds for countdown to finish
+        tick(3000);
+
+        // Power-ups should now be enabled
+        expect(hintBtn).toBeEnabled();
+        expect(remixBtn).toBeEnabled();
+        expect(fiftyBtn).toBeEnabled();
+        expect(rerollBtn).toBeEnabled();
+    });
 });
