@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import confetti from 'canvas-confetti';
-import { advance, clickPair, flat, mountScripted } from '../test/engineHarness';
+import { advance, click, clickPair, flat, mountScripted } from '../test/engineHarness';
 
 // Survival-mode scripted board: values 1..12 (level 6 range), all four operators.
 // Tile indexes 0 and 1 feed the first target; indexes 2 and 3 are the tiles we click.
@@ -166,6 +166,19 @@ describe('Math matching engine', () => {
             clickPair(e, 2, 3); // 8/4 = 2
             expect(e.result.current.feedbackMessage).toMatch(/Division/);
             expect(e.result.current.score).toBe(0);
+        });
+    });
+
+    describe('selection concurrency', () => {
+        it('blocks a 3rd tile click while 2 tiles are already being evaluated', () => {
+            const e = survival({ 0: 3, 1: 4, 2: 10, 3: 11, 4: 12 }, '+');
+            clickPair(e, 2, 3); // mismatch: 10+11 != 7
+            expect(status(e, 2)).toBe('wrong');
+            expect(status(e, 3)).toBe('wrong');
+
+            // While wrong animation is displaying, clicking a 3rd tile must be blocked
+            click(e, 4);
+            expect(status(e, 4)).toBe('idle');
         });
     });
 });

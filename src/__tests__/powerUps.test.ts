@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useGameEngine } from '../hooks/useGameEngine';
-import { advance, advanceRefill, findPairs, installRandom, mountScripted, solveOne, type Engine } from '../test/engineHarness';
+import { advance, advanceRefill, click, findPairs, flat, installRandom, mountScripted, solveOne, type Engine } from '../test/engineHarness';
 
 const SEEDS = Array.from({ length: 15 }, (_, i) => i + 1);
 
@@ -57,6 +57,15 @@ describe('Solvability & power-ups', () => {
             act(() => e.result.current.useHint());
             expect(e.result.current.hintState).not.toBeNull();
             expect(e.result.current.timeRemaining).toBe(60);
+        });
+
+        it('clears any existing tile selection when hint is used', () => {
+            const e = mountSeeded(1);
+            click(e, 0);
+            expect(flat(e)[0].status).toBe('selected');
+
+            act(() => e.result.current.useHint());
+            expect(flat(e)[0].status).toBe('idle');
         });
 
         it('is cleared after a successful match', () => {
