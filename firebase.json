@@ -1,15 +1,53 @@
 {
     "hosting": {
+        "target": "six-seven",
         "public": "dist",
+        "predeploy": [
+            "npm test"
+        ],
         "ignore": [
             "firebase.json",
             "**/.*",
+            "!**/.well-known/**",
             "**/node_modules/**"
         ],
         "rewrites": [
             {
                 "source": "**",
                 "destination": "/index.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "/.well-known/assetlinks.json",
+                "headers": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    }
+                ]
+            },
+            {
+                "source": "sw.js",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    }
+                ]
+            },
+            {
+                "source": "workbox-*.js",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    }
+                ]
             }
         ]
     },

@@ -9,6 +9,7 @@ interface GameControlsProps {
     isShuffling?: boolean;
     isResettingTarget?: boolean;
     isSurvivalMode?: boolean; // Show penalty only in survival
+    disabled?: boolean; // Disable all power-ups during countdown/pause/gameover
 }
 
 export const GameControls = ({
@@ -19,7 +20,8 @@ export const GameControls = ({
     isGridHalved,
     isShuffling,
     isResettingTarget,
-    isSurvivalMode
+    isSurvivalMode,
+    disabled = false
 }: GameControlsProps) => {
     // Penalty suffix only for survival mode
     const penalty = isSurvivalMode ? ' (-3s)' : '';
@@ -31,11 +33,11 @@ export const GameControls = ({
 
                 {/* REMIX Tool (Shuffle) */}
                 <motion.button
-                    whileHover={{ scale: 1.08, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: disabled || isShuffling ? 1 : 1.08, y: disabled || isShuffling ? 0 : -2 }}
+                    whileTap={{ scale: disabled || isShuffling ? 1 : 0.95 }}
                     onClick={onShuffle}
-                    disabled={isShuffling}
-                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-blue-500/50 hover:bg-gray-700/80 transition-all shadow-lg disabled:opacity-40"
+                    disabled={disabled || isShuffling}
+                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-blue-500/50 hover:bg-gray-700/80 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/10"
                     title={`Remix${penalty}`}
                 >
                     {/* Subtle glow on hover */}
@@ -52,10 +54,11 @@ export const GameControls = ({
 
                 {/* HINT Tool */}
                 <motion.button
-                    whileHover={{ scale: 1.08, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: disabled ? 1 : 1.08, y: disabled ? 0 : -2 }}
+                    whileTap={{ scale: disabled ? 1 : 0.95 }}
                     onClick={onHint}
-                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-amber-500/50 hover:bg-gray-700/80 transition-all shadow-lg"
+                    disabled={disabled}
+                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-amber-500/50 hover:bg-gray-700/80 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/10"
                     title={`Hint${penalty}`}
                 >
                     {/* Subtle glow on hover */}
@@ -72,11 +75,11 @@ export const GameControls = ({
 
                 {/* 50/50 Tool */}
                 <motion.button
-                    whileHover={{ scale: isGridHalved ? 1 : 1.08, y: isGridHalved ? 0 : -2 }}
-                    whileTap={{ scale: isGridHalved ? 1 : 0.95 }}
+                    whileHover={{ scale: (disabled || isGridHalved) ? 1 : 1.08, y: (disabled || isGridHalved) ? 0 : -2 }}
+                    whileTap={{ scale: (disabled || isGridHalved) ? 1 : 0.95 }}
                     onClick={onFiftyFifty}
-                    disabled={isGridHalved}
-                    className={`group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-violet-500/50 hover:bg-gray-700/80 transition-all shadow-lg ${isGridHalved ? 'opacity-30 grayscale cursor-not-allowed hover:border-white/10' : ''}`}
+                    disabled={disabled || isGridHalved}
+                    className={`group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-violet-500/50 hover:bg-gray-700/80 transition-all shadow-lg ${(disabled || isGridHalved) ? 'opacity-30 grayscale cursor-not-allowed hover:border-white/10' : ''}`}
                     title={`50/50${penalty}`}
                 >
                     {/* Subtle glow on hover */}
@@ -93,11 +96,11 @@ export const GameControls = ({
 
                 {/* REROLL Tool (Reset Target) */}
                 <motion.button
-                    whileHover={{ scale: 1.08, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: disabled || isResettingTarget ? 1 : 1.08, y: disabled || isResettingTarget ? 0 : -2 }}
+                    whileTap={{ scale: disabled || isResettingTarget ? 1 : 0.95 }}
                     onClick={onResetTarget}
-                    disabled={isResettingTarget}
-                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-rose-500/50 hover:bg-gray-700/80 transition-all shadow-lg disabled:opacity-40"
+                    disabled={disabled || isResettingTarget}
+                    className="group relative flex flex-col items-center justify-center w-14 h-14 bg-gray-800/80 rounded-xl border border-white/10 hover:border-rose-500/50 hover:bg-gray-700/80 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/10"
                     title={`Reroll${penalty}`}
                 >
                     {/* Subtle glow on hover */}

@@ -67,8 +67,9 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     const [isGameOver, setIsGameOver] = useState<boolean>(false);
     const [timeBonus, setTimeBonus] = useState<number | null>(null);
 
-    // Timer pause during easter egg animations
+    // Timer pause during easter egg animations or manual user pause
     const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+    const [isGamePaused, setIsGamePaused] = useState<boolean>(false);
 
     // Pre-game countdown (3, 2, 1, GO!)
     const [countdown, setCountdown] = useState<number | null>(initialMode === 'survival' ? 3 : null);
@@ -146,7 +147,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     // Timer countdown effect (only for survival mode, after countdown finishes)
     // PAUSES during tool animations (Reset Target, Shuffle) AND easter egg animations
     useEffect(() => {
-        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling || isTimerPaused) return;
+        if (initialMode !== 'survival' || isGameOver || countdown !== null || isResettingTarget || isShuffling || isTimerPaused || isGamePaused) return;
 
         const interval = setInterval(() => {
             setTimeRemaining(prev => {
@@ -159,7 +160,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling, isTimerPaused]);
+    }, [initialMode, isGameOver, countdown, isResettingTarget, isShuffling, isTimerPaused, isGamePaused]);
 
 
     // SMART TARGET GENERATION (Op-First)
@@ -506,15 +507,21 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
     const handleTileClick = useCallback((row: number, col: number) => {
         const tile = grid[row][col];
         if (tile.status === 'matched' || tile.status === 'wrong') return;
+
+        // Block new selections if already processing 2 tiles
+        if (selectedTiles.length >= 2 && tile.status !== 'selected') return;
+
         if (tile.status === 'selected') {
-            setGrid(prev => {
-                const next = [...prev]; next[row][col] = { ...tile, status: 'idle' }; return next;
-            });
+            setGrid(prev => prev.map(r => r.map(t =>
+                t.id === tile.id ? { ...t, status: 'idle' as const } : t
+            )));
             setSelectedTiles(prev => prev.filter(t => t.id !== tile.id));
             return;
         }
         const newSelected = [...selectedTiles, tile];
-        setGrid(prev => { const next = [...prev]; next[row][col] = { ...tile, status: 'selected' }; return next; });
+        setGrid(prev => prev.map(r => r.map(t =>
+            t.id === tile.id ? { ...t, status: 'selected' as const } : t
+        )));
         setSelectedTiles(newSelected);
         if (newSelected.length === 2) checkMatch(newSelected[0], newSelected[1]);
     }, [grid, selectedTiles, checkMatch]);
@@ -557,6 +564,14 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
 
     // POWER-UP: Hint - Highlights one valid tile
     const useHint = useCallback(() => {
+        // Clear any current selection to prevent state desync
+        if (selectedTiles.length > 0) {
+            setSelectedTiles([]);
+            setGrid(prev => prev.map(row => row.map(t =>
+                t.status === 'selected' ? { ...t, status: 'idle' as const } : t
+            )));
+        }
+
         const validPairs = findValidPairs(grid, target, config.ops);
         if (validPairs.length > 0) {
             // Pick a random valid pair and highlight one tile
@@ -567,7 +582,7 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
             // Time penalty in survival mode
             applyTimePenalty(3);
         }
-    }, [grid, target, config.ops, findValidPairs, initialMode, applyTimePenalty]);
+    }, [grid, target, config.ops, findValidPairs, initialMode, applyTimePenalty, selectedTiles.length]);
 
     // POWER-UP: 50/50 - Removes half the tiles with gravity effect
     const useFiftyFifty = useCallback(() => {
@@ -811,12 +826,22 @@ export const useGameEngine = (initialMode: 'campaign' | 'survival' | 'zen' = 'su
         setSelectedTiles([]);
     }, [hintState, target, config.ops, findValidPairs, applyTimePenalty]);
 
+    const pauseGame = useCallback(() => {
+        setIsGamePaused(true);
+    }, []);
+
+    const resumeGame = useCallback(() => {
+        setIsGamePaused(false);
+    }, []);
+
     return {
         grid, target, score, level, isLevelComplete,
         lastOperator, memeState, operatorCounts,
         handleTileClick, shuffleBoard, config, feedbackMessage, stars,
         // Timer state (for survival mode)
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        // Pause state
+        isGamePaused, pauseGame, resumeGame,
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
         hintState, isShuffling, isResettingTarget, isGridHalved,

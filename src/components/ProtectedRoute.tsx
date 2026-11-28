@@ -19,7 +19,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         );
     }
 
-    if (!currentUser) {
+    if (!currentUser || currentUser.isAnonymous) {
         return <Navigate to="/" replace />;
     }
 

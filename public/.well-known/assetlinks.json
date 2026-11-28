@@ -1,0 +1,16 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.harrycheese.sixseven",
+            "sha256_cert_fingerprints": [
+                "F5:0D:93:1B:84:08:91:B5:89:8F:2B:6C:4F:50:B4:2A:9F:E7:CA:AE:0D:2D:0B:C6:B4:F1:14:22:97:6F:00:30",
+                "59:9C:F0:57:1C:9E:55:28:5D:96:F5:29:9C:4E:D0:F3:6B:C2:B7:76:B7:CD:AD:8A:5C:CB:A8:77:A1:BD:5A:FD",
+                "AF:57:D2:33:94:9B:55:0B:6B:CF:86:15:17:6C:FB:DF:C7:43:C9:A6:59:26:96:68:F9:1C:06:4C:89:AC:8A:65"
+            ]
+        }
+    }
+]

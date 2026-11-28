@@ -39,6 +39,8 @@ export const GameScreen = () => {
         lastOperator, operatorCounts,
         handleTileClick, shuffleBoard, memeState, config, feedbackMessage, stars,
         timeRemaining, isGameOver, timeBonus, INITIAL_TIME, countdown,
+        // Pause tools
+        isGamePaused, pauseGame, resumeGame,
         // Power-up tools
         useHint, useFiftyFifty, resetTargetNumber,
         hintState, isShuffling, isResettingTarget, isGridHalved,
@@ -48,6 +50,54 @@ export const GameScreen = () => {
     } = useGameEngine(mode, initialLevel);
 
     const [showHelp, setShowHelp] = useState(false);
+    const [resumeCountdown, setResumeCountdown] = useState<number | null>(null);
+
+    // Disable all board and power-up interactions during countdown, pause, unpause countdown, or completion
+    const isInteractionsDisabled = (countdown !== null && countdown >= 0) || isGamePaused || resumeCountdown !== null || isGameOver || isLevelComplete;
+
+    // Intercept Android Back Button (Hardware / Gesture)
+    useEffect(() => {
+        // Push a dummy history state to intercept the back action
+        window.history.pushState({ modal: 'game-active' }, '');
+
+        const handlePopState = () => {
+            if (!isGameOver && !isLevelComplete) {
+                // Keep the route on /play and trigger the pause modal
+                window.history.pushState({ modal: 'game-active' }, '');
+                pauseGame();
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isGameOver, isLevelComplete, pauseGame]);
+
+    // Auto-pause if app goes to background / tab is switched
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && !isGameOver && !isLevelComplete) {
+                pauseGame();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [isGameOver, isLevelComplete, pauseGame]);
+
+    // Handle resume with a clean 3-2-1 unpause countdown
+    const handleResumeClick = () => {
+        setResumeCountdown(3);
+    };
+
+    useEffect(() => {
+        if (resumeCountdown === null) return;
+        if (resumeCountdown > 0) {
+            const timer = setTimeout(() => setResumeCountdown(resumeCountdown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else {
+            setResumeCountdown(null);
+            resumeGame();
+        }
+    }, [resumeCountdown, resumeGame]);
 
     // Helper to map UI operators to Schema operators
     const getMappedOperatorStats = (ops: Record<string, number>): OperatorStats => ({
@@ -184,14 +234,21 @@ export const GameScreen = () => {
         }
     }, [isGameOver, mode, score, sessionAnalytics, startTime]);
 
-    // Handle manual exit (Back button)
     const handleExit = () => {
-        // Validation: If not finished, save stats on exit
+        // Trigger pause modal instead of instantly dropping game
+        if (!isLevelComplete && !isGameOver) {
+            pauseGame();
+            return;
+        }
+        navigate('/');
+    };
+
+    const handleConfirmAbandon = () => {
         if (!isLevelComplete && !isGameOver && !savedSessionRef.current) {
             savedSessionRef.current = true;
-            saveProgress('abandoned'); // Explicitly mark as abandoned
+            saveProgress('abandoned');
         }
-        navigate('/modes');
+        navigate('/');
     };
 
     return (
@@ -252,15 +309,28 @@ export const GameScreen = () => {
                                 className="px-4 py-1.5 bg-blue-500/20 text-blue-200 border border-blue-500/30 rounded-full text-xs font-bold tracking-wide backdrop-blur text-center"
                             >
                                 {(() => {
-                                    const quests = config.requiredOps || {};
+                                    // Handle corner case: Target is 0
+                                    if (target === 0) {
+                                        return "Find identical numbers and subtract them: A − B = 0";
+                                    }
 
+                                    // Survival & Zen Modes: All 4 operations are active
+                                    if (mode === 'survival' || mode === 'zen') {
+                                        return `Match ${target} using +, −, ×, or ÷ with any two tiles!`;
+                                    }
+
+                                    // Campaign Mode: Level quests
+                                    const quests = config.requiredOps || {};
                                     if (quests['-']) return `Find pairs that equal ${target}. Try Subtraction!`;
                                     if (quests['×']) return `Find pairs that equal ${target}. Try Multiplication!`;
                                     if (quests['÷']) return `Find pairs that equal ${target}. Try Division!`;
 
-                                    if (config.level <= 2) return `Find pairs that add up to ${target}`;
+                                    // Single-op early levels
+                                    if (config.ops.length === 1 && config.ops[0] === '+') {
+                                        return `Find two tiles that add up to ${target}`;
+                                    }
 
-                                    return `Find pairs that equal ${target}`;
+                                    return `Find two tiles that equal ${target} using +, −, ×, or ÷`;
                                 })()}
                             </motion.div>
                         ) : (
@@ -275,8 +345,9 @@ export const GameScreen = () => {
                                 </span>
                                 {/* Coaching Tooltip Trigger */}
                                 <button
+                                    disabled={isInteractionsDisabled}
                                     onClick={() => { setShowHelp(true); setTimeout(() => setShowHelp(false), 3000); }}
-                                    className="w-4 h-4 rounded-full bg-white/10 text-[10px] text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors"
+                                    className="w-4 h-4 rounded-full bg-white/10 text-[10px] text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     i
                                 </button>
@@ -313,7 +384,7 @@ export const GameScreen = () => {
                 )}
 
                 {/* 2. Work (Grid) */}
-                <div className={`flex-1 flex items-center justify-center w-full max-w-md ${countdown !== null && countdown >= 0 ? 'pointer-events-none opacity-70' : ''}`}>
+                <div className={`flex-1 flex items-center justify-center w-full max-w-md ${isInteractionsDisabled ? 'pointer-events-none opacity-70' : ''}`}>
                     <GameBoard
                         grid={grid}
                         onTileClick={handleTileClick}
@@ -322,7 +393,7 @@ export const GameScreen = () => {
                 </div>
 
                 {/* 3. Utilities (Controls) */}
-                <div className="w-full max-w-md pb-8">
+                <div className={`w-full max-w-md pb-8 ${isInteractionsDisabled ? 'pointer-events-none opacity-50' : ''}`}>
                     <GameControls
                         onShuffle={shuffleBoard}
                         onHint={useHint}
@@ -332,6 +403,7 @@ export const GameScreen = () => {
                         isShuffling={isShuffling}
                         isResettingTarget={isResettingTarget}
                         isSurvivalMode={mode === 'survival'}
+                        disabled={isInteractionsDisabled}
                     />
                 </div>
             </div>
@@ -406,13 +478,84 @@ export const GameScreen = () => {
                                 </div>
 
                                 <button
-                                    onClick={() => navigate('/campaign')}
+                                    onClick={() => navigate('/')}
                                     className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black tracking-widest shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group"
                                 >
                                     <span>CONTINUE</span>
                                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                     </svg>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Pause Modal */}
+            <AnimatePresence>
+                {isGamePaused && !isGameOver && !isLevelComplete && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="w-full max-w-sm bg-[#12121a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
+                        >
+                            <div className="w-16 h-16 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 mb-4 shadow-[0_0_20px_rgba(250,204,21,0.2)]">
+                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 9v6m4-6v6" />
+                                </svg>
+                            </div>
+
+                            <h2 className="text-3xl font-black text-white italic tracking-wider mb-1">
+                                GAME PAUSED
+                            </h2>
+                            <p className="text-xs text-gray-400 font-medium mb-6">
+                                Take a breath. The countdown is frozen.
+                            </p>
+
+                            {/* Current Status Preview */}
+                            <div className="grid grid-cols-2 gap-3 w-full mb-6">
+                                <div className="bg-white/5 border border-white/5 rounded-2xl p-3 flex flex-col items-center">
+                                    <span className="text-xl font-black text-white">{score}</span>
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Score</span>
+                                </div>
+                                <div className="bg-white/5 border border-white/5 rounded-2xl p-3 flex flex-col items-center">
+                                    <span className="text-xl font-black text-yellow-400">{timeRemaining}s</span>
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Time Left</span>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-col gap-3 w-full">
+                                {resumeCountdown !== null ? (
+                                    <div className="w-full py-4 bg-yellow-400 text-gray-950 rounded-2xl font-black text-2xl tracking-wider shadow-lg flex items-center justify-center animate-pulse">
+                                        {resumeCountdown === 0 ? 'GO!' : resumeCountdown}
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleResumeClick}
+                                        className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-gray-950 rounded-2xl font-black text-lg tracking-wider shadow-[0_0_30px_rgba(250,204,21,0.3)] transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                        </svg>
+                                        RESUME
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={handleConfirmAbandon}
+                                    disabled={resumeCountdown !== null}
+                                    className="w-full py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 border border-white/10 rounded-2xl font-bold text-sm text-gray-400 transition-colors"
+                                >
+                                    Quit Game
                                 </button>
                             </div>
                         </motion.div>
@@ -472,7 +615,7 @@ export const GameScreen = () => {
 
                                 <div className="flex gap-3 w-full">
                                     <button
-                                        onClick={() => navigate('/modes')}
+                                        onClick={() => navigate('/')}
                                         className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold tracking-wider transition-all"
                                     >
                                         EXIT
