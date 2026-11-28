@@ -26,5 +26,7 @@ These rules apply to every developer and AI agent working in this repo.
 
 ## Branches
 
-- `feature/twa-app-launch` backs the Play Store release. Do not modify it while a store review is pending.
+- `main` backs the production releases.
+- Feature branches are used for isolated features and experiments.
+- Always run `npm test` before merging into `main`.
 
